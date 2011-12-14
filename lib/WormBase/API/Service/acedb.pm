@@ -7,7 +7,7 @@ use namespace::clean -except => 'meta';
 
 has 'dbh'     => (
     is        => 'rw',
-    isa       => 'Ace',
+    isa       => 'WormBase::Ace',
     predicate => 'has_dbh',
     writer    => 'set_dbh',
     handles   => [qw/fetch raw_query find fetch_many raw_fetch/],
@@ -91,6 +91,8 @@ sub connect {
         $options{-cache}->{cache_auto_purge_interval} = $conf->{cache_auto_purge_interval}
             if $conf->{cache_auto_purge_interval};
     }
+
+    $options{name} = 'ws228';
 
     my $dbh = WormBase::Ace->connect(%options)
         or $self->log->error(WormBase::Ace->error);

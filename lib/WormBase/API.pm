@@ -226,7 +226,7 @@ sub fetch {
 
         # HACK for variation -- resolve variation name first
         if ($aceclass eq 'Variation' and $name !~ /^WBVar/ and
-            my $var_name = $service_dbh->fetch(-class => 'Variation_name', -name => $name)) {
+            my $var_name = $service_dbh->fetch(class => 'Variation_name', name => $name)) {
             my $orig_name = $name; # for debug
             $name = $var_name->Public_name_for || $var_name->Other_name_for || $name;
             $self->log->debug("[API::fetch()]", " Variation hack, $orig_name, found $name");
@@ -237,13 +237,13 @@ sub fetch {
 			foreach my $ace (@$aceclass) {
                 $self->log->debug("[API::fetch()]",
                                   " attempt to fetch $name of ace class $ace");
-				last if $object = $service_dbh->fetch(-class => $ace, -name => $name);
+				last if $object = $service_dbh->fetch(class => $ace, name => $name);
 			}
 		}
 		else { # assume a single Ace class
             $self->log->debug("[API::fetch()]",
                               " attempt to fetch $name of ace class $aceclass");
-			$object = $service_dbh->fetch(-class => $aceclass, -name => $name);
+			$object = $service_dbh->fetch(class => $aceclass, name => $name);
 		}
     }
 

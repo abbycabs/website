@@ -28,7 +28,7 @@ use WormBase::API::ModelMap;
 
 has 'object' => (
     is  => 'rw',
-    isa => 'Ace::Object',
+    isa => 'AceCouch::Object',
 );
 
 has 'dsn' => (

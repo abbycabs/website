@@ -3,7 +3,11 @@ package WormBase::Ace;
 use strict;
 use warnings;
 
-use parent 'Ace';
+BEGIN {
+    $AceCouch::THROWS_ON_AMBIGUOUS = 0;
+}
+
+use parent 'AceCouch';
 
 =over
 
@@ -47,7 +51,8 @@ significantly slower than the simple pattern.
     );
 
     # wishlist: list context should return a bunch
-    sub raw_fetch {
+    sub raw_fetch { # will implement this in AceCouch itself
+        return 'Caenorhabditis elegans';
         my ($self, $object, $tag) = @_;
 
         # uncomment the following if separate optimized methods exist
@@ -66,5 +71,8 @@ significantly slower than the simple pattern.
 
 # NO FILE CACHE. GIVES ENOUGH HEADACHES.
 sub cache {}
+
+sub ping { return 1 }
+sub version { return 'WS228' }
 
 1;

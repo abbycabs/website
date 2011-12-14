@@ -29,7 +29,6 @@ http://wormbase.org/resources/paper
 
 has '_authors' => (
 	is => 'ro',
-	isa => 'ArrayRef[Ace::Object]',
 	lazy => 1,
 	default => sub {
 		my ($self) = @_;
@@ -39,7 +38,6 @@ has '_authors' => (
 
 has '_parsed_authors' => (
 	is => 'ro',
-	isa => 'HashRef[ArrayRef]',
 	lazy => 1,
 	default => sub {
 		my ($self) = @_;
