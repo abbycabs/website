@@ -77,57 +77,24 @@ sub _build_type {
     my $s = $self->object;
     # figure out where this sequence comes from
     # should rearrange in order of probability
-    my $type;
-    if ($s =~ /^cb\d+\.fpc\d+$/) {
-		$type = 'C. briggsae draft contig';
-    }
-	elsif (_is_gap($s)) {
-		$type = 'gap in genomic sequence -- for accounting purposes';
-    }
-	elsif (eval { $s->Genomic_canonical(0) }) {
-		$type = 'genomic';
-    }
-	elsif ($self->_method eq 'Vancouver_fosmid') {
-		$type = 'genomic -- fosmid';
-    }
-	elsif (eval { $s->Pseudogene(0) }) {
-		$type = 'pseudogene';
-    }
-	elsif (eval { $s->RNA_Pseudogene(0) }) {
-		$type = 'RNA_pseudogene';
-    }
-	elsif (eval { $s->Locus }) {
-		$type = 'confirmed gene';
-    }
-	elsif (eval { $s->Coding }) {
-		$type = 'predicted coding sequence';
-    }
-	elsif ($s->get('cDNA')) {
-		($type) = $s->get('cDNA');
-    }
-	elsif ($self->_method eq 'EST_nematode') {
-		$type   = 'non-Elegans nematode EST sequence';
-    }
-	elsif (eval { $s->AC_number }) {
-		$type = 'external sequence';
-    }
-	elsif (eval{_is_merged($s)}) {
-		$type = 'merged sequence entry';
-    }
-	elsif ($self->_method eq 'NDB') {
-		$type = 'GenBank/EMBL Entry';
-		# This is going to need more robust processing to traverse object structure
-    }
-	elsif (eval { $s->RNA} ) {
-		$type = eval {$s->RNA} . ' ' . eval {$s->RNA->right};
-    }
-	else {
-		$type = eval {$s->Properties(1)};
-    }
-    $type ||= 'unknown';
-    return $type;
-}
 
+    return 'C. briggsae draft contig'                           if $s =~ /^cb\d+\.fpc\d+$/;
+    return 'gap in genomic sequence -- for accounting purposes' if _is_gap($s);
+	return 'genomic'                                            if eval { $s->Genomic_canonical(0) };
+	return 'genomic -- fosmid'                                  if $self->_method eq 'Vancouver_fosmid';
+	return 'pseudogene'                                         if eval { $s->Pseudogene(0) };
+	return 'RNA_pseudogene'                                     if eval { $s->RNA_Pseudogene(0) };
+	return 'confirmed gene'                                     if eval { $s->Locus };
+    return 'predicted coding sequence'                          if eval { $s->Coding };
+    return ($s->get('cDNA'))[0]                                 if () = $s->get('cDNA');
+    return 'non-Elegans nematode EST sequence'                  if $self->_method eq 'EST_nematode';
+    return 'external sequence'                                  if eval { $s->AC_number };
+    return 'merged sequence entry'                              if eval{ _is_merged($s) };
+    return 'GenBank/EMBL Entry'                                 if $self->_method eq 'NDB';
+		# This is going to need more robust processing to traverse object structure
+    return eval {$s->RNA} . ' ' . eval {$s->RNA->right}         if eval { $s->RNA };
+    return eval {$s->Properties(1)} // 'unknown';
+}
 
 #######################################
 #

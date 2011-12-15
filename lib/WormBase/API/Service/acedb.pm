@@ -46,53 +46,20 @@ sub _build_path {
     return $self->conf->{path};
 }
 
-around 'reconnect' => sub {
-    my $orig       =  shift;
-    my $self       =  shift;
-
-    my $dbh;
-    if (my $prog = $self->program and my $path = $self->path) {
-        # go straight to connecting
-        $self->log->debug("try #0: Connecting to ", $self->symbolic_name,
-                          " locally at $path using $prog");
-        $dbh     = $self->connect;
-    }
-
-    # use the fallback reconnect if program is not available
-    $dbh ||= $self->$orig(@_);
-
-    return $dbh;
-};
-
 sub connect {
     my $self = shift;
-    my $conf = $self->conf;
+    # my $conf = $self->conf;
 
-    my %options =  ( # will always have this...
-        -user   => $self->user,
-        -pass   => $self->pass,
+    my $dbh = $self->dbh;
+
+    if ($dbh) {
+        # don't need to make a new one, just revive the old one
+        $dbh->reopen and return $dbh;
+    }
+
+    my %options = (
+        name => 'ws228', # hardcode for now
     );
-
-    if (my $prog = $self->program and my $path = $self->path) {
-        @options{'-program', '-path'} = ($prog, $path);
-    }
-    else {
-        @options{'-host', '-port'} = ($self->host, $self->port);
-    }
-
-    if ($conf->{cache_root}) { # cache root indicates need file cache
-        $options{-cache} = {
-            cache_root         => $conf->{cache_root},
-            max_size           => $conf->{cache_size},
-            default_expires_in => $conf->{cache_expires},
-        };
-
-        # ace requires the following to have a value if present
-        $options{-cache}->{cache_auto_purge_interval} = $conf->{cache_auto_purge_interval}
-            if $conf->{cache_auto_purge_interval};
-    }
-
-    $options{name} = 'ws228';
 
     my $dbh = WormBase::Ace->connect(%options)
         or $self->log->error(WormBase::Ace->error);
@@ -102,7 +69,6 @@ sub connect {
 sub ping {
   my ($self,$dbh)=@_;
   return $dbh->ping;
-
 }
 
 1;

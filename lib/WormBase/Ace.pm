@@ -50,29 +50,28 @@ significantly slower than the simple pattern.
         # TAG => qr/^TAG\s+SOME_PATTERN/sm,        # TAG needs a special pattern
     );
 
-    # wishlist: list context should return a bunch
-    sub raw_fetch { # will implement this in AceCouch itself
-        return 'Caenorhabditis elegans';
-        my ($self, $object, $tag) = @_;
+    # # wishlist: list context should return a bunch
+    # sub raw_fetch { # will implement this in AceCouch itself
+    #     return 'Caenorhabditis elegans';
+    #     my ($self, $object, $tag) = @_;
 
-        # uncomment the following if separate optimized methods exist
-        # # run the optimized/correct method if possible
-        # my $raw_fetch_alt = "raw_fetch_\l$tag";
-        # return $self->$raw_fetch_alt($object) if $self->can($raw_fetch_alt);
+    #     # uncomment the following if separate optimized methods exist
+    #     # # run the optimized/correct method if possible
+    #     # my $raw_fetch_alt = "raw_fetch_\l$tag";
+    #     # return $self->$raw_fetch_alt($object) if $self->can($raw_fetch_alt);
 
-        my $regex = $PATTERN_CACHE{$tag} //= qr/^$tag\s+"([^"]+)"/m;
+    #     my $regex = $PATTERN_CACHE{$tag} //= qr/^$tag\s+"([^"]+)"/m;
 
-        my $class = $object->class;
-        $self->raw_query(qq(find $class "$object"));
-        my ($val) = $self->raw_query("show -a $tag") =~ $regex;
-        return $val;
-    }
+    #     my $class = $object->class;
+    #     $self->raw_query(qq(find $class "$object"));
+    #     my ($val) = $self->raw_query("show -a $tag") =~ $regex;
+    #     return $val;
+    # }
 }
 
 # NO FILE CACHE. GIVES ENOUGH HEADACHES.
 sub cache {}
 
-sub ping { return 1 }
 sub version { return 'WS228' }
 
 1;

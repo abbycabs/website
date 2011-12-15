@@ -2551,12 +2551,12 @@ sub interactions {
             $direction = 'non-directional';
         }
         else {
-            $effector  = $type->Effector->right if $type->Effector;
-            $effected  = $type->Effected->right;
+            $effector  = $type->Effector;
+            $effected  = $type->Effected;
             $direction = 'Effector->Effected';
         }
 
-        my $phenotype = eval {$type->Interaction_phenotype->right};
+        my $phenotype = $type->Interaction_phenotype;
 
         push @data,
             {
