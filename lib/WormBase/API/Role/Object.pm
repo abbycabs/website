@@ -371,8 +371,7 @@ sub _build_best_blastp_matches {
     }
 
     foreach (values %best) {
-        my $covered = $self->_covered($_->{score}->col);
-        $_->{covered} = $covered;
+        $_->{covered} = $self->_covered($_->{score}->col);
     }
 
     # NOT HANDLED YET
@@ -1908,7 +1907,7 @@ sub _build_xrefs {
         my $url             = $db->URL;
         my $url_constructor = $db->URL_constructor;
         my $email           = $db->Email;
-        my $remote_text     = $db->right(1);
+        my $remote_text     = $db->right;
 	$url_constructor =~ s/<Gene&RNAID>$/\%s/ ;
         # Possibly multiple entries for a single DB
         my @ids = map {

@@ -50,13 +50,6 @@ sub connect {
     my $self = shift;
     # my $conf = $self->conf;
 
-    my $dbh = $self->dbh;
-
-    if ($dbh) {
-        # don't need to make a new one, just revive the old one
-        $dbh->reopen and return $dbh;
-    }
-
     my %options = (
         name => 'ws228', # hardcode for now
     );
@@ -68,7 +61,7 @@ sub connect {
 
 sub ping {
   my ($self,$dbh)=@_;
-  return $dbh->ping;
+  return $dbh->reopen; # this ping should always work!
 }
 
 1;
