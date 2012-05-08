@@ -74,7 +74,14 @@ sub status_servers :Path("status_servers") {
 
     # Would be nice to create RRD of each, too.
 
-} 
+}
+
+ 
+sub intermine_test :Path("intermine_test") {
+    my ( $self, $c ) = @_;
+    $c->stash->{noboiler} = 1;
+    $c->stash->{template} = 'admin/intermine_test.tt2';
+}
 
 
 # Fetch the status of our reverse proxy.

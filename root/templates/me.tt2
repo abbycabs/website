@@ -40,6 +40,11 @@
                       href  =  c.uri_for('/admin','status_proxy').path,
                       type  = "me"
                     });
+       widgets.push({ id    = 'intermine_test',
+         	      title = 'Intermine test',
+                      href  =  c.uri_for('/admin','intermine_test').path,
+                      type  = "me"
+                    });
        widgets.push({ id    = 'status_servers',
          	      title = 'Status (Servers)',
                       href  =  c.uri_for('/admin','status_servers').path,
