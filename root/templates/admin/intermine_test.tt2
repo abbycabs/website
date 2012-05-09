@@ -1,12 +1,10 @@
 
 <div id="pathway-widget"></div>
 
-
-    <script src="http://intermine.github.com/intermine-widget-client/js/widgets.js"></script>
-
     <script type="text/javascript">
-console.log('this is a test');
     (function() {
+        WB.getPlugin("intermine_widgets", function(){
+
         /* InterMine root URL. */
         var mine = "http://test.metabolicmine.org/test";
 
@@ -15,7 +13,6 @@ console.log('this is a test');
 
         /* Give us Pathway Enrichment Widget. */
         widgets.enrichment('prot_dom_enrichment_for_gene', 'demo-genes', '#pathway-widget');
-
-
+        });
     })();
     </script>

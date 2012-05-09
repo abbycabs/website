@@ -1795,6 +1795,7 @@ var Scrolling = (function(){
                         markitup: "/js/jquery/plugins/markitup/jquery.markitup.js",
                         "markitup-wiki": "/js/jquery/plugins/markitup/sets/wiki/set.js",
                         cytoscape_web: "/js/jquery/plugins/cytoscapeweb/js/min/cytoscapeweb_all.min.js",
+                        intermine_widgets: "http://intermine.github.com/intermine-widget-client/js/widgets.js",
           },
           pStyle = {    dataTables: "/js/jquery/plugins/dataTables/media/css/demo_table.css",
                         colorbox: "/js/jquery/plugins/colorbox/colorbox/colorbox.css",
