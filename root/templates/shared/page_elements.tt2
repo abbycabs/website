@@ -226,10 +226,17 @@ END;
 [%# The Floating Box on the overview widget %]
 [% BLOCK highlight_box %]
     <div class="detail-box ui-corner-all">
+<div class="content">
        [% taxonomy %]
        [% content %]
        [% wb_id_field %]
        [% download_field %]
+</div>
+       <div class="view-all" onClick="WB.openAllWidgets(); return false;">
+
+       view all content
+
+</div>
     </div>
 [% END %] 
 

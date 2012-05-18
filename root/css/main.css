@@ -2427,12 +2427,16 @@ div#google-map {
 div.detail-box{
   border:1px solid #CDCDCD;
   background:#E9EEF2;
-  padding: 0.5em;
+  padding:0;
   float:right;
   margin:0.5em;
   max-width:25em;
-/*   min-width:19em; */
   word-wrap: break-word;
+}
+
+div.detail-box .content{
+  padding: 0.5em;
+  font-size:1em;
 }
 
 div.description {
@@ -2444,6 +2448,18 @@ div.description {
 div.description div.result{
   padding:0.5em;
   margin:-0.5em;
+}
+
+div.detail-box .view-all {
+  clear:both;
+  background:#C2D1DF;
+  padding:0.2em;
+  text-align:center;
+  cursor:pointer;
+}
+
+div.detail-box .view-all:hover {
+  background:#ADC6DE;
 }
 
 #overview .content h2:first-child{
@@ -2491,6 +2507,9 @@ div.detail-box div.field div.field-content{
 [tip]:before {
     content: "";
     position: absolute;
+    opacity:0.85;
+    filter:alpha(opacity=85);
+    -moz-opacity:0.85;
     border-top: 5px solid #000;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
@@ -2522,6 +2541,9 @@ div.detail-box div.field div.field-content{
     padding:6px;
     top: -33px;
     right:0px;
+    opacity:0.85;
+    filter:alpha(opacity=85);
+    -moz-opacity:0.85;
     background: #000;
     -webkit-border-radius: 5px;
     -moz-border-radius: 5px;
