@@ -1,7 +1,19 @@
 <script type="text/javascript">
-WB.getColorbox(function(){
-$jq(".picturebox").colorbox({width:"80%", height:"80%", opacity:"0.4"});
+// WB.getColorbox(function(){}); 
+ 
+
+$jq('.picturebox').click(function () {
+ 
+var url=this.target;
+ 
+   $jq.colorbox({href:url,width:"80%", height:"80%", opacity:"0.4"});
+     
+ 
+return false;
 });
+
+ 
+
 </script>
 
 [% IF fields.curated_images.data %]	
@@ -9,7 +21,7 @@ $jq(".picturebox").colorbox({width:"80%", height:"80%", opacity:"0.4"});
    <div style="display:inline-block;">
       [% FOREACH img IN fields.curated_images.data.$group %]
       <div style="display:inline-block;max-width:200px;margin:1em;">
-         <a class="picturebox" rel="curated_images" href="/rest/widget/picture/[% img.id %]/lightbox" >
+         <a class="picturebox" rel="curated_images"  href="#" target="/rest/widget/picture/[% img.id %]/lightbox">
 	  
          <img src="[% img.draw.class %]/[% img.draw.name %]_200.[% img.draw.format %]"
               alt="[% img.id %] thumbnail" style="max-width:100%;margin:auto;display:block;"></a><br>

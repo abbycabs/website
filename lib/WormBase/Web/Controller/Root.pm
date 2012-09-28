@@ -31,9 +31,7 @@ sub index :Path Args(0) {
     $c->stash->{template} = 'index.tt2';
     $c->log->debug('Cache servers: ',
                    join(', ', keys %{$c->config->{memcached}->{servers}}));
-    my ($page) = $c->model('Schema::Page')->search({url=>"/"});
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
+    $self->_setup_page($c);
     $c->stash->{tutorial_off} = $c->req->param('tutorial_off');
 }
 
@@ -92,35 +90,6 @@ sub footer :Path("/footer") Args(0) {
       $c->stash->{template} = 'footer/default.tt2';
 } 
 
-sub draw :Path("/draw") Args(1) {
-    my ($self,$c,$format) = @_;
-    my ($cache_source,$cached_img);
-    my $params = $c->req->params;
-    if ($params->{class} && $params->{id}) {
-        my @keys = ('image', $params->{class}, $params->{id});
-        my $key = join('-',@keys);
-        ($cached_img,$cache_source) = $c->check_cache($key, 'filecache');
-
-        unless($cached_img) {  # not cached -- make new image and cache
-            # the following line is a security risk
-            my $source = File::Spec->catfile(
-                $c->model('WormBaseAPI')->pre_compile->{$params->{class}},
-                "$params->{id}.$format"
-            );
-            $c->log->debug("Attempt to draw image: $source");
-
-            $cached_img = GD::Image->new($source);
-            $c->set_cache($key => $cached_img, 'filecache');
-        }
-    }
-    else {
-        $cached_img = $c->flash->{gd};
-    }
-#       $c->response->header( 'Content-Type' => 'image/png');
-    $c->res->body($cached_img);
-#     $c->stash(gd_image => $cached_img);
-#     $c->detach('WormBase::Web::View::Graphics');
-}
 
 
 sub me :Path("/me") Args(0) {
@@ -166,9 +135,156 @@ sub end : ActionClass('RenderView') {
   }
 }
 
-# /quit, used for profiling so that NYTProf can exit cleanly.
-sub quit :Global { exit(0) }
 
+# This kills our app if anyone visits this action...
+# /quit, used for profiling so that NYTProf can exit cleanly.
+# sub quit :Global { exit(0) }
+
+
+=head2 get
+
+  GET report pages
+  URL space: /get
+  Params: name and class
+
+Provided with a class and name via the classic /db/get script,
+redirect to the correct report page.
+
+Caveat: currently assumes Ace class is given. Requires
+name & class to correspond exactly to an object in AceDB
+or the lower case Ace class
+
+=cut
+
+sub get :Local Args(0) {
+    my ($self, $c) = @_;
+
+    $c->stash->{template} = 'species/report.tt2';
+
+    my $requested_class = $c->req->param('class');
+    my $name            = $c->req->param('name');
+    $name =~ s/^\s+|\s+$//g;
+
+    my $api    = $c->model('WormBaseAPI');
+    my $ACE2WB = $api->modelmap->ACE2WB_MAP->{class};
+
+    # hack for locus (legacy):
+    $requested_class = 'Gene' if lc $requested_class eq 'locus';
+
+    # TOTAL HACK!
+    # Some legacy links to Anatomy_term are weird:
+    # /db/get?name=[Anatomy_name_object];class=Anatomy_term
+    # so searches fail. We need to map the Anatomy_name object
+    # to the correct Anatomy_term object.
+
+    # Wow. Legacy of legacy of legacy. Incroyable.  The once mighty Cell_group class before
+    # all the confusion began.
+    if (($requested_class eq 'Anatomy_term' || $requested_class eq 'Cell_group' || $requested_class eq 'Cell') && $name !~ /^WBbt/) {
+	my $api = $c->model('WormBaseAPI');
+	my $temp_object = $api->fetch({
+	    class => 'Anatomy_name',
+	    name  => $name,
+				      }) or warn "Couldn't fetch an Anatomy_name object: $!";
+	if ($temp_object) {
+	    $name = $temp_object->Synonym_for_anatomy_term || $temp_object->Name_for_anatomy_term;
+	}
+	# Reset the class for Cell_group and Cell searches; unknown to API.
+	$requested_class = 'Anatomy_term';
+    }
+
+
+    # there may be input (perhaps external, hand-typed input or even automated
+    # input from a non-WB tool) which specifies a class in the incorrect casing
+    # but is otherwise legitimate (e.g. Go_term, which should be GO_term). this
+    # could be a problem in those kinds of input.
+    my $class = $ACE2WB->{$requested_class}
+             || $ACE2WB->{lc $requested_class} # canonical Ace class
+             or $c->detach('/soft_404');
+
+    my $normed_class = lc $class;
+
+    my $url = (exists $c->config->{sections}->{species}->{$normed_class}) ? $c->uri_for('/species', 'all', $normed_class, $name)->path : $c->uri_for('/resources', $normed_class, $name)->path;
+    $c->res->redirect($url);
+}
+
+# TODO: POD
+
+# if there are enough of these, a GBrowse controller might be warranted
+sub gbrowse_popup :Path('gbrowse_popup') :Args(0) {
+    my ($self, $c) = @_;
+
+    my $name  = $c->req->params->{name}  || '';
+    my $class = $c->req->params->{class} || '';
+    my $type  = $c->req->params->{type}  || '';
+
+    my $description;
+
+    my $api = $c->model('WormBaseAPI');
+
+    # WARNING: quickly hacked together code ahead with View and Model code!
+    # consider making a proper model and view for this GBrowse popup data
+    if ($type eq 'CG') {
+        if (my $ace = $api->fetch({aceclass => $class, name => $name})) {
+            $ace = $ace->object;
+            my $gene = eval { $ace->Corresponding_CDS->Gene } || eval { $ace->Gene };
+            $description = join(' ', eval { $gene->Concise_description }
+                                  || eval { $gene->Detailed_description }
+                                  || eval { $gene->Provisional_description }
+                                  || eval { $gene->Sequence_features }
+                                  || eval { $gene->Molecular_function }
+                                  || eval { $gene->Biological_process }
+                                  || eval { $gene->Functional_pathway }
+                                  || eval { $gene->Functional_physical_interaction }
+                                  || eval { $gene->Expression }
+                                  || eval { $gene->Other_description }
+                                  || eval { $gene->Remarks }
+                                  || eval { $ace->Corresponding_CDS->DB_Remark }
+                              );
+        }
+    }
+    elsif ($type eq 'EXPR_PATTERN') {
+        if (my $pattern = $api->fetch({class => 'Expr_pattern', name => $name})) {
+            # IMAGE
+            # TODO: cartoon image generated by legacy /db/gene/expression if no expr image
+            if (my $cimg = $pattern->curated_images->{data}) {
+                # arbitrarily select a curated image... maybe we should get rid
+                # of this and just use the virtual worm image if possible
+                my ($groupname, $imgs) = each %$cimg;
+                my $img_data = $imgs->[0]->{draw};
+               
+                $c->stash(expr_image => $img_data->{class}.'/'.name =>$img_data->{name}.".".$img_data->{format}
+			);
+            }
+            else {
+                $c->stash(expr_image => $pattern->expression_image->{data}
+				     
+			);
+            }
+
+            # TEXT
+            if ($description = $pattern ~~ 'Pattern') { # nasty
+                $description =~ s/;/,/g;
+                $description =~ s/,$//;
+            }
+
+            my $label = $pattern->name->{data}->{label}; # "Expression pattern for ..."
+
+            if (my $types = eval {$pattern->experimental_details->{data}->{types}}) {
+                $label =~ s/Expression pattern //; # "for ..."
+                $c->stash(title => "$types->[0]->[0] $label");
+            }
+            else {
+                $c->stash(title => $label);
+            }
+        }
+    }
+
+    $c->stash(
+        desc     => $description,
+        template => 'gbrowse/gbrowse_popup.tt2',
+        noboiler => 1,
+    );
+}
 
 =head1 AUTHOR
 

@@ -9,9 +9,10 @@ use Crypt::SaltedHash;
 use List::Util qw(shuffle);
 use Badge::GoogleTalk;
 use WormBase::API::ModelMap;
+use LWP;
+use JSON;
 use URI::Escape;
-use Text::WikiText;
-use Text::WikiText::Output::HTML;
+use Text::MultiMarkdown 'markdown';
 use DateTime;
 
 __PACKAGE__->config(
@@ -19,7 +20,7 @@ __PACKAGE__->config(
     'stash_key'        => 'rest',
     'map'              => {
         'text/x-yaml'      => 'YAML',
-        'text/html'        => 'YAML::HTML',
+        'text/html'        => [ 'View', 'TT' ], #'YAML::HTML',
         'text/xml'         => 'XML::Simple',
         'application/json' => 'JSON',
     }
@@ -103,7 +104,7 @@ sub workbench_GET {
       my $save_to = $c->req->params->{save_to} || 'reports';
       my $is_obj = $c->req->params->{is_obj} || 0;
       my $name = $c->req->params->{name};
-      my $page = $c->model('Schema::Page')->search({url=>$url}, {rows=>1})->next || $c->model('Schema::Page')->create({url=>$url,title=>$name,is_obj=>$is_obj});
+      my $page = $self->_get_page($c, $url) || $c->model('Schema::Page')->create({url=>$url,title=>$name,is_obj=>$is_obj});
       my $saved = $page->user_saved->find({session_id=>$session->id});
       if($saved){
             $saved->delete();
@@ -146,10 +147,7 @@ sub layout_POST {
   $layout = 'default' unless $layout;
   my $i = 0;
   if($layout ne 'default'){
-    $c->log->debug("max: " . join(',', (sort {$b <=> $a} keys %{$c->user_session->{'layout'}->{$class}})));
-    
     $i = ((sort {$b <=> $a} keys %{$c->user_session->{'layout'}->{$class}})[0]) + 1;
-    $c->log->debug("not default: $i");
   }
 
   my $lstring = $c->request->body_parameters->{'lstring'};
@@ -191,12 +189,15 @@ sub layout_list_GET {
   my @layouts = keys(%{$c->user_session->{'layout'}->{$class}});
   my %l;
   map {$l{$_} = $c->user_session->{'layout'}->{$class}->{$_}->{'name'};} @layouts;
-  $c->log->debug("layout list:" . join(',',@layouts));
+  $c->log->debug("$class layout list:" . join(',',@layouts));
   $c->stash->{layouts} = \%l;
   $c->stash->{template} = "boilerplate/layouts.tt2";
   $c->stash->{noboiler} = 1;
-$c->response->headers->expires(time);
-    $c->forward('WormBase::Web::View::TT');
+  $c->stash->{section} = $c->req->params->{section};
+  $c->stash->{class} = $class;
+  $c->stash->{object}{name}{data}{class} = $class; #hack... sorry
+  $c->response->headers->expires(time);
+  $c->forward('WormBase::Web::View::TT');
 }
 
 
@@ -307,17 +308,55 @@ sub history_POST {
       my $name = URI::Escape::uri_unescape($c->request->body_parameters->{'name'});
       my $is_obj = $c->request->body_parameters->{'is_obj'};
 
-      my $page = $c->model('Schema::Page')->search({url=>$url}, {rows=>1})->next || $c->model('Schema::Page')->create({url=>$url,title=>$name,is_obj=>$is_obj});
+      my $page = $self->_get_page($c, $url) || $c->model('Schema::Page')->create({url=>$url,title=>$name,is_obj=>$is_obj});
       my $hist = $c->model('Schema::History')->find_or_create({session_id=>$session->id,page_id=>$page->page_id});
       $hist->set_column(timestamp=>time());
       $hist->set_column(visit_count=>(($hist->visit_count || 0) + 1));
       $hist->update;
     }
-    $c->user_session->{'history_on'} = $c->request->body_parameters->{'history_on'} // $c->user_session->{'history_on'};
+#     $c->user_session->{'history_on'} = $c->request->body_parameters->{'history_on'} // $c->user_session->{'history_on'};
+}
+
+
+
+sub vote :Path('/rest/vote') :Args(0) :ActionClass('REST') {}
+sub vote_POST {
+    my ($self,$c) = @_;
+
+    my $question_id = $c->request->body_parameters->{'q_id'};
+    my $answer_id = $c->request->body_parameters->{'a_id'};
+    my $session = $self->_get_session($c);
+    my $vote = $c->model('Schema::Votes')->find_or_create({session_id=>$session->id,question_id=>$question_id,answer_id=>$answer_id });
+    $vote->set_column(answer_id=>$answer_id);
+    $vote->update;
+
+    my %total_votes = map {$_->answer_id => $_->get_column('vote_count')} $c->model('Schema::Answers')->search(
+      { 'me.question_id' => $question_id },
+      {
+        join => 'votes', columns => 'answer_id',
+        select   => [ 'answer_id', { count => 'votes.answer_id' } ],
+        as       => [qw/ answer_id vote_count /],
+        group_by => [qw/ answer_id /]
+      }
+    );
+
+    my ($sum, $max);
+    $sum += $_ for (values %total_votes);
+    $max = (sort { $b <=> $a } (values %total_votes))[0];
+
+    $c->response->headers->expires(time);
+    $self->status_ok(
+        $c,
+        entity =>  {
+            total => "$sum",
+            max => "$max",
+            votes => \%total_votes,
+        },
+    );
 }
 
  
-sub update_role :Path('/rest/update/role') :Args :ActionClass('REST') {}
+sub update_role :Path('/rest/update/role') :Args(3) :ActionClass('REST') {}
 
 sub update_role_POST {
     my ($self,$c,$id,$value,$checked) = @_;
@@ -332,55 +371,20 @@ sub update_role_POST {
     }
 }
 
-sub evidence :Path('/rest/evidence') :Args :ActionClass('REST') {}
 
-sub evidence_GET {
-    my ( $self, $c, $class, $name, $tag, $index, $right ) = @_;
-
-    my $headers = $c->req->headers;
-    $c->log->debug( $headers->header('Content-Type') );
-    $c->log->debug($headers);
-
-    my $object = $c->model('WormBaseAPI')->fetch({ class => ucfirst $class, name => $name });
-    # what if there's no object?
-
-    # Did we request the widget by ajax?
-    # Supress boilerplate wrapping.
-    if ( $c->is_ajax() ) {
-        $c->stash->{noboiler} = 1;
-    }
-
-    my @node   = $object->object->$tag;
-    $right ||= 0;
-    $index ||= 0;
-    my $data = $object->_get_evidence( $node[$index]->right($right) );
-    $c->stash->{evidence} = $data;
-    $c->stash->{template} = "shared/generic/evidence.tt2";
-    $c->forward('WormBase::Web::View::TT');
-    my $uri = $c->uri_for( "/reports", $class, $name );
-    $self->status_ok(
-        $c,
-        entity => {
-            class    => $class,
-            name     => $name,
-            uri      => "$uri",
-            evidence => $data
-        }
-    );
-}
 
 
 sub download : Path('/rest/download') :Args(0) :ActionClass('REST') {}
 
-sub download_GET {
+sub download_POST {
     my ($self,$c) = @_;
      
-    my $filename=$c->req->param("type");
+    my $filename=$c->req->body_parameters->{filename};
     $filename =~ s/\s/_/g;
+        my $csv = "test";
     $c->response->header('Content-Type' => 'text/html');
-    $c->response->header('Content-Disposition' => 'attachment; filename='.$filename);
-#     $c->response->header('Content-Description' => 'A test file.'); # Optional line
-    $c->response->body($c->req->param("sequence"));
+    $c->res->header('Content-Disposition', qq[attachment; filename="$filename"]);
+    $c->response->body($c->req->body_parameters->{content});
 }
 
 sub rest_link_wbid :Path('/rest/link_wbid') :Args(0) :ActionClass('REST') {}
@@ -398,11 +402,11 @@ sub rest_link_wbid_POST {
       unless($confirm){
         $c->model('Schema::Email')->find_or_create({email=>$wbe, user_id=>$user_id});
         $self->rest_register_email($c, $wbe, $username, $user_id, $wbid);
-        $c->stash->{message} = "<h2>Thank you!</h2> <p>An email has been sent to " . join(', ', map {"<a href='mailto:$_'>$_</a>"} @wbemails) . " to confirm that you are $wbid</p>" ; 
+        $c->stash->{message} = "<h2>You're almost done!</h2> <p>An email has been sent to " . join(', ', map {"<a href='mailto:$_'>$_</a>"} @wbemails) . " to confirm that you are $wbid</p>" ; 
       }else{
         $c->user->wb_link_confirm(1);
         $c->model('Schema::Email')->find_or_create({email=>$wbe, user_id=>$user_id, validated=>1});
-        $c->stash->{message} = "<h2>Thank you!</h2> <p>Your account is now linked to <a href=\"" . $c->uri_for('/resources', 'person', $wbid) . "\">$wbid</a></p>" ; 
+        $c->stash->{message} = "<h2>Thank you!</h2> <p>Your account is now linked to <a href=\"" . $c->uri_for('/resources', 'person', $wbid)->path . "\">$wbid</a></p>" ; 
       }
       $c->user->update();
     }
@@ -460,8 +464,8 @@ sub rest_register_POST {
       
       push(@emails, @wbemails);
       $c->stash->{template} = "shared/generic/message.tt2"; 
-      $c->stash->{message} = "<h2>Thank you!</h2> <p>Thank you for registering at <a href='" . $c->uri_for("/") . "'>wormbase.org</a>. An email has been sent to " . join(', ', map {"<a href='mailto:$_'>$_</a>"} @emails) . " to confirm your registration</p>" ; 
-      $c->stash->{redirect} = $c->req->params->{redirect};
+      $c->stash->{message} = "<h2>You're almost done!</h2> <p>An email has been sent to " . join(', ', map {"<a href='mailto:$_'>$_</a>"} @emails) . ".</p><p>In order to use this account at <a href='" . $c->uri_for("/")->path . "'>wormbase.org</a> you will need to activate it by following the activation link in your email.</p>" ; 
+#       $c->stash->{redirect} = $c->req->params->{redirect};
       $c->forward('WormBase::Web::View::TT');
 
     }
@@ -525,15 +529,15 @@ sub feed_GET {
       my $wbid = shift @args;
       my $widget = shift @args;
       my $name = shift @args;
-      if($widget=~m/^static-widget-([\d])/){
-        $c->stash->{url} = $c->uri_for('widget/static', $1);
+      if($widget=~m/^static-widget-([\d]+)/){
+        $c->stash->{url} = $c->uri_for('widget/static', $1)->path;
       }else{
-        $c->stash->{url} = $c->uri_for('widget', $class, $wbid, $widget);
+        $c->stash->{url} = $c->uri_for('widget', $class, $wbid, $widget)->path;
       }
     }else{
 
       my $url = $c->req->params->{url};
-      my $page = $c->model('Schema::Page')->search({url=>$url}, {rows=>1})->next;
+      my $page = $self->_get_page($c, $url);
       $c->stash->{url} = $url;
 
       if($type eq "comment"){
@@ -582,91 +586,103 @@ sub feed_POST {
         my $content= $c->req->params->{content};
 
         my $url = $c->req->params->{url};
-        my $page = $c->model('Schema::Page')->find({url=>$url});
+        my $page = $self->_get_page($c, $url);
 
         my $user = $c->user;
         unless($c->user_exists){
           $user = $c->model('Schema::User')->create({username=>$c->req->params->{name}, active=>0});
           $c->model('Schema::Email')->find_or_create({email=>$c->req->params->{email}, user_id=>$user->user_id});
         }
-
         my $commment = $c->model('Schema::Comment')->find_or_create({user_id=>$user->user_id, page_id=>$page->page_id, content=>$content,'timestamp'=>time()});
 
       }
     }
     elsif($type eq 'issue'){
-    if($c->req->params->{method} || '' eq 'delete'){
-      my $id = $c->req->params->{issues};
-      if($id){
-        foreach (split('_',$id) ) {
-          my $issue = $c->model('Schema::Issue')->find($_);
-          $c->log->debug("delete issue #",$issue->issue_id);
-          $issue->delete();
-          $issue->update();
-        }
-      }
-    }else{
-      my $content    = $c->req->params->{content};
-      my $title      = $c->req->params->{title};
-      my $is_private = $c->req->params->{isprivate};
-      
-      my $url = $c->req->params->{url};
-      $c->log->debug(keys %{$c->req->params});
-      my $page = $c->model('Schema::Page')->search({url=>$url}, {rows=>1})->next;
-      $c->log->debug("private: $is_private");
-      my $user = $self->_check_user_info($c);
-      return unless $user;
-      $c->log->debug("create new issue $content ",$user->user_id);
-      my $issue = $c->model('Schema::Issue')->find_or_create({reporter_id=>$user->user_id,
-                                  title=>$title,
-                                  page_id=>$page->page_id,
-                                  content=>$content,
-                                  state      =>"new",
-                                  is_private => $is_private,
-                                  'timestamp'=>time()});
-      $self->_issue_email($c,$issue,1,$content);
-    }
+	if($c->req->params->{method} || '' eq 'delete'){
+	    my $id = $c->req->params->{issues};
+	    if($id){
+		foreach (split('_',$id) ) {
+		    my $issue = $c->model('Schema::Issue')->find($_);
+		    $c->log->debug("delete issue #",$issue->issue_id);
+		    $issue->delete();
+		    $issue->update();
+		}
+	    }
+	}else{
+	    my $content    = $c->req->params->{content};
+	    my $title      = $c->req->params->{title};
+	    my $name = $c->req->params->{name} || $c->user->username;
+	    my $email = $c->req->params->{email} || $c->user->primary_email->email;
+	    
+	    my $url = $c->req->params->{url};
+	    my $page = $self->_get_page($c, $url);
+
+	    $content =~ s/\n/<br \/>/g;
+
+	    my ($issue_url,$issue_title,$issue_number) =
+		$self->_post_to_github($c,$content, $email, $name, $title, $page);
+
+	    $self->_issue_email({ c       => $c,
+				  page    => $page,
+				  new     => 1,
+				  content => $content, 
+				  change  => undef,
+				  reporter_email   => $email, 
+				  reporter_name    => $name, 
+				  title   => $title,
+				  issue_url    => $issue_url,
+				  issue_title  => $issue_title,
+				  issue_number => $issue_number });
+	    
+	    $c->stash->{message} = $title 
+		? qq|<h2>Your question has been submitted</h2> <p>The WormBase helpdesk will get back to you shortly.</p><p>You can track progress on this question on our <a href="$issue_url" target="_blank">issue tracker</a>.</p>|
+		: qq|<h2>Your report has been submitted</h2> <p>Thank you for helping WormBase improve the site!</p><p>You can track progress on this question on our <a href="$issue_url" target="_blank">issue tracker</a>.</p>|;
+	    $c->stash->{template} = "shared/generic/message.tt2"; 
+	    $c->stash->{redirect} = $url if $title;
+	    $c->stash->{noboiler} = 1;
+	    $c->forward('WormBase::Web::View::TT');
+	}
     }elsif($type eq 'thread'){
-    my $content= $c->req->params->{content};
-    my $issue_id = $c->req->params->{issue};
-    my $state    = $c->req->params->{state};
-    my $severity = $c->req->params->{severity};
-    my $assigned_to= $c->req->params->{assigned_to};
-    if($issue_id) { 
-       my $hash;
-       my $issue = $c->model('Schema::Issue')->find($issue_id);
-       if ($state) {
-          $hash->{status}={old=>$issue->state,new=>$state};
-          $issue->state($state) ;
-       }
-       if ($severity) {
-          $hash->{severity}={old=>$issue->severity,new=>$severity};
-          $issue->severity($severity);
-       }
-       if($assigned_to) {
-          my $people=$c->model('Schema::User')->find($assigned_to);
-          $hash->{assigned_to}={old=>$issue->responsible_id,new=>$people};
-          $issue->responsible_id($assigned_to);
+	my $content= $c->req->params->{content};
+	my $issue_id = $c->req->params->{issue};
+	my $state    = $c->req->params->{state};
+	my $severity = $c->req->params->{severity};
+	my $assigned_to= $c->req->params->{assigned_to};
+	if($issue_id) { 
+	    my $hash;
+	    my $issue = $c->model('Schema::Issue')->find($issue_id);
+	    if ($state) {
+		$hash->{status}={old=>$issue->state,new=>$state};
+		$issue->state($state) ;
+	    }
+	    if ($severity) {
+		$hash->{severity}={old=>$issue->severity,new=>$severity};
+		$issue->severity($severity);
+	    }
+	    if($assigned_to) {
+		my $people=$c->model('Schema::User')->find($assigned_to);
+		$hash->{assigned_to}={old=>$issue->responsible_id,new=>$people};
+		$issue->responsible_id($assigned_to);
 #         $c->model('Schema::UserIssue')->find_or_create({user_id=>$assigned_to,issue_id=>$issue_id}) ;
-       }
-       $issue->update();
-        
-       my $user = $self->_check_user_info($c);
-       return unless $user;
-       my $thread  = { owner=>$user,
-              timestamp=>time(),
-       };
-       if($content){
-        $c->log->debug("create new thread for issue #$issue_id!");
-        my @threads= $issue->threads(undef,{order_by=>'thread_id DESC' } ); 
-        my $thread_id=1;
-        $thread_id = $threads[0]->thread_id +1 if(@threads);
-        $thread= $c->model('Schema::IssueThread')->find_or_create({issue_id=>$issue_id,thread_id=>$thread_id,content=>$content,timestamp=>$thread->{timestamp},user_id=>$user->user_id});
-      }  
-      if($state || $assigned_to || $content){
-          $self->_issue_email($c,$issue,$thread,$content,$hash);
-      }
-    }
+	    }
+	    $issue->update();
+	    
+	    my $user = $self->_check_user_info($c);
+	    return unless $user;
+	    my $thread  = { owner=>$user,
+			    timestamp=>time(),
+	    };
+	    if($content){
+		$c->log->debug("create new thread for issue #$issue_id!");
+		my @threads= $issue->threads(undef,{order_by=>'thread_id DESC' } ); 
+		my $thread_id=1;
+		$thread_id = $threads[0]->thread_id +1 if(@threads);
+		$thread= $c->model('Schema::IssueThread')->find_or_create({issue_id=>$issue_id,thread_id=>$thread_id,content=>$content,timestamp=>$thread->{timestamp},user_id=>$user->user_id});
+	    }  
+	    if($state || $assigned_to || $content){
+		$self->_issue_email($c,$issue->page,$thread,$content,$hash);
+	    }
+	}
     }
 }
 
@@ -731,15 +747,22 @@ sub widget_GET {
 
     # No boiler since this is an XHR request.
     $c->stash->{noboiler} = 1;
-
+    $c->stash->{colorbox} = $c->req->param('colorbox') if $c->req->param('colorbox');
 
     # references widget - no need for an object
     # only html
-    if ( $widget eq 'references' ) {
-          $c->req->params->{widget} = 'references';
+    if ( $widget =~ m/references|disease/i ) {
+          $c->req->params->{widget} = $widget;
+          $c->req->params->{class} = $class;
           $c->go('search', 'search');
     }
-
+=pod  this is going to conflict with the hash# for widgets
+    if ( $widget eq 'ontology_browser' ) {
+          $c->req->params->{widget} = 'ontology_browser';
+          $c->res->redirect("/tools/ontology_browser/run?inline=1&class=$class&name=$name");
+	  $c->detach();
+    }
+=cut
     my $api = $c->model('WormBaseAPI');
     my $object = ($name eq '*' || $name eq 'all'
                ? $api->instantiate_empty(ucfirst $class)
@@ -823,52 +846,6 @@ sub widget_GET {
 
 
 
-
-
-
-
-# Widgets specific to the Userguide.
-# The userguide has its own report to facilitate a deeper structure.
-sub widget_userguide :Path('/rest/widget/userguide') :ActionClass('REST') {}
-
-sub widget_userguide_GET {
-    my ($self,$c,@args) = @_; 
-    my $path = join('/',@args);
-
-    $c->stash->{template}       = 'shared/generic/rest_widget.tt2';
-    $c->stash->{child_template} = "userguide/$path.tt2";
-    $c->stash->{noboiler}       = 1;
-
-    # Get a list of available classes.
-    # The API index includes a list of available classes.
-    if ($path =~ m{all_classes}) {
-	my $dir = "$ENV{APP_ROOT}/$ENV{APP}/lib/WormBase/API/Object";
-	opendir(DIR,$dir) or $c->log->debug("Couldn't open $dir");
-	my @classes = grep { !/^\./ && !/\.orig/ && !/^\#/ && !/~$/} readdir(DIR);
-	
-	$c->stash->{classes}  = \@classes;
-#	$c->stash->{template} = 'userguide/developers/api-rest/all_classes.tt2';
-
-	# Kludge for individual classes.
-    # we don't really want each of these to have their own page.
-    } elsif ($path =~ m{api-rest/class/(.*)}) {
-	my $class = $1;
-	$c->stash->{class} = $class;
-	WormBase::Web::Controller::UserGuide->_get_pod($c,$class);
-	$c->stash->{child_template} = "userguide/developers/api-rest/class_documentation_generic.tt2";
-    }
-	       
-    # Forward to the view to render HTML
-    my $html = $c->view('TT')->render($c,$c->{stash}->{template}); 
-    
-    $c->response->status(200);
-    $c->response->header('Content-Type' => 'text/html');
-    $c->response->body($html);
-    $c->detach();
-    return;
-}
-
-
 # For "static" pages
 # that do not need to handle objects. They have a different linking structure
 sub widget_static :Path('/rest/widget/static') :Args(1) :ActionClass('REST') {}
@@ -886,22 +863,19 @@ sub widget_static_GET {
       $c->stash->{revisions} = \@revisions if @revisions;
       $c->stash->{widget_id} = $widget_id;
     } else { # getting actual widget
-      my $parser = Text::WikiText->new;
       my $widget = $c->model('Schema::Widgets')->find({widget_id=>$widget_id});
       $c->stash->{widget} = $widget;
       if($c->req->params->{rev}){ # getting a certain revision of the widget
         my $rev = $c->model('Schema::WidgetRevision')->find({widget_revision_id=>$c->req->params->{rev}});
         unless($rev->widget_revision_id == $widget->content->widget_revision_id){
           $c->stash->{rev} = $rev;
-          my $document = $parser->parse($rev->content);
-          $c->stash->{rev_content} = Text::WikiText::Output::HTML->new->dump($document);
+          $c->stash->{rev_content} = markdown($rev->content);
           my $time = DateTime->from_epoch( epoch => $rev->timestamp);
           $c->stash->{rev_date} =  $time->hms(':') . ', ' . $time->day . ' ' . $time->month_name . ' ' . $time->year;
         }
       }
       if(!($c->stash->{rev}) && $widget){
-        my $document = $parser->parse($widget->content->content);
-        $c->stash->{widget_content} = Text::WikiText::Output::HTML->new->dump($document);
+        $c->stash->{widget_content} = markdown($widget->content->content);
       }
       $c->stash->{timestamp} = ago(time()-($c->stash->{widget}->content->timestamp), 1) if($widget_id > 0);
       $c->stash->{path} = $c->request->params->{path};
@@ -919,7 +893,7 @@ sub widget_static_GET {
       my $format = $headers->header('Content-Type') || $c->req->params->{'content-type'};
       $c->detach('WormBase::Web::View::TT') unless($format) ;
       
-      my $uri = $c->uri_for("/rest/widget",$widget_id);
+      my $uri = $c->uri_for("/rest/widget",$widget_id)->path;
       $self->status_ok($c, entity => {
       id   => $widget_id,
       name    => $widget->widget_title,
@@ -971,10 +945,10 @@ sub widget_static_POST {
         $widget->widget_order($widget_order);
         $widget->update();
 
-      #creating a widget - only admin
-      }elsif($c->check_user_roles("admin")){ 
+      #creating a widget - only admin & curator
+      }elsif($c->check_any_user_role("admin", "curator")){ 
           my $url = $c->request->body_parameters->{path};
-          my $page = $c->model('Schema::Page')->find({url=>$url});
+          my $page = $self->_get_page($c, $url);
           $widget_revision->widget($c->model('Schema::Widgets')->create({ 
                     page_id=>$page->page_id, 
                     widget_title=>$widget_title, 
@@ -1013,7 +987,7 @@ sub widget_class_index_GET {
     # No boiler since this is an XHR request.
     $c->stash->{noboiler} = 1;
 
-    if($widget=~m/browse|basic_search|summary/){
+    if($widget=~m/browse|basic_search|summary|downloads|data_unavailable/){
       $c->stash->{template}="shared/widgets/$widget.tt2";
     }elsif($class eq 'all'){
       $c->stash->{template} = "species/$species/$widget.tt2";
@@ -1031,9 +1005,7 @@ sub widget_home_GET {
     my ($self,$c,$widget) = @_; 
     $c->response->headers->expires(time);
     $c->log->debug("getting home page widget");
-    if($widget eq 'issues') {
-      $c->stash->{issues} = $self->_issue_rss($c,2);
-    } elsif($widget eq 'activity') {
+    if($widget eq 'activity') {
       if ($c->user_session->{'history_on'} || 0 == 1){
         $c->stash->{popular} = $self->_most_popular($c,5);
       } 
@@ -1045,6 +1017,17 @@ sub widget_home_GET {
 
     } elsif($widget eq 'discussion') {
       $c->stash->{comments} = $self->_comment_rss($c,2);
+    } elsif($widget eq 'vote') {
+      my @not_questions = map {$_->question_id} $c->model('Schema::Questions')->search({ 'votes.session_id' => $self->_get_session($c)->id },
+                                                              { join => 'votes', columns => 'question_id'});
+      my @questions = $c->model('Schema::Questions')->search({'question_id' => { '-not_in' => \@not_questions }});
+      @questions = $c->model('Schema::Questions')->search() if (@questions == 0);
+
+      my $question = @questions[int(rand(@questions))];
+      my @answers = $question->answers;
+
+      $c->stash->{question} = $question;
+      $c->stash->{answers} = \@answers;
     }
     $c->stash->{template} = "classes/home/$widget.tt2";
     $c->stash->{noboiler} = 1;
@@ -1075,7 +1058,7 @@ sub widget_me_GET {
     if($widget eq 'my_library'){ $type = 'paper';} else { $type = 'all';}
 
     my $session = $self->_get_session($c);
-    my @reports = $session->user_saved->search({save_to => $widget});
+    my @reports = $session->user_saved->search({save_to => ($widget eq 'my_library') ? $widget : 'reports'});
 
     my @ret = map { $self->_get_search_result($c, $api, $_->page, "added " . ago((time() - $_->timestamp), 1) ) } @reports;
 
@@ -1087,6 +1070,7 @@ sub widget_me_GET {
     $c->forward('WormBase::Web::View::TT');
     return;
 }
+
 
 
 
@@ -1116,11 +1100,10 @@ sub _check_user_info {
       $user->username($c->req->params->{username}) if($c->req->params->{username});
       $user->email_address($c->req->params->{email}) if($c->req->params->{email});
   }else{
-      if($user = $c->model('Schema::User')->find({email_address=>$c->req->params->{email},active =>1})){
-        $c->res->body(0) ;return 0 ;
-      }
-      $user=$c->model('Schema::User')->find_or_create({email_address=>$c->req->params->{email}}) ;
-      $user->username($c->req->params->{username}),
+      my $email = $c->model('Schema::Email')->find({email=>$c->req->params->{email},validated =>1});
+      return $email->user if $email;
+      $user=$c->model('Schema::User')->create({username=>$c->req->params->{name}});
+      $c->model('Schema::Email')->find_or_create({email=>$c->req->params->{email}, validated=>1, user_id=>$user->user_id, primary_email=>1});
   }
   $user->update();
   return $user;
@@ -1128,37 +1111,107 @@ sub _check_user_info {
 
 
 
-sub _issue_email{
-  my ($self,$c,$issue,$new,$content,$change) = @_;
-  my $subject='New Issue';
-  my $bcc;
-  $bcc = $issue->reporter->primary_email->email if ($issue->reporter && $issue->reporter->primary_email);
+sub _post_to_github {
+  my ($self,$c,$content,$email, $name, $title, $page) = @_;
 
-  unless($new == 1){
-    $subject='Issue Update';
-    my @threads= $issue->threads;
-    $bcc = "$bcc, " . $issue->responsible->primary_email->email if ($issue->responsible && $issue->responsible->primary_email);
-    my %seen=();  
-    $bcc = $bcc.",". join ",", grep { ! $seen{$_} ++ } map {$_->user->primary_email->email if ($_->user && $_->user->primary_email)} @threads;
-  }
-  $subject = '[WormBase Issues] '.$subject.' '.$issue->issue_id.': '.$issue->title;
+  my $url     = 'https://api.github.com/repos/wormbase/website/issues';
 
-  $c->stash->{issue}=$issue;
+  # Get a new authorization for the website repo,
+  # curl -H "Content-Type: application/json"  -u "tharris" -X POST https://api.github.com/authorizations -d '{"scopes": [ "website" ],"note": "wormbase helpdesk cross-post" }'
+  
+  # This only needs to be done once.
+  # Already have an OAuth token stored locally outside of our app.
+  #  my $response = $browser->post($url,
+  #				[
+  #				 'scopes' = [ "website" ],
+  #				 'note'   = "wormbase helpdesk cross-post" ]);
+  
+  
+  # Get github issues (not particularly useful)
+  # curl -H "Authorization: token OAUTH-TOKEN" https://api.github.com/repos/wormbase/website/issues
 
-  $c->stash->{new}=$new;
-  $c->stash->{content}=$content;
-  $c->stash->{change}=$change;
-  $c->stash->{noboiler} = 1;
-  $c->log->debug(" send out email to $bcc");
-  $c->stash->{email} = {
-          to      => $c->config->{issue_email},
-          cc => $bcc,
-          from    => $c->config->{issue_email},
-          subject => $subject, 
-          template => "feed/issue_email.tt2",
-          };
+  # Post a new issue
+  # Surely an easier way to do this.
+  my $path = WormBase::Web->path_to('/') . '/credentials';
+  my $token = `cat $path/github_token.txt`;
+  chomp $token;
+  return unless $token;
+        
+#      curl -H "Authorization: token TOKEN" -X POST -d '{ "title":"Test Issue","body":"this is the body of the issue","labels":["HelpDesk"]}' https://api.github.com/repos/wormbase/website/issues 
    
-  $c->forward( $c->view('Email::Template') );
+  my $req = HTTP::Request->new(POST => $url);
+  $req->content_type('application/json');
+  $req->header('Authorization' => "token $token");
+
+# Obscure names and emails.
+  my $obscured_name  = substr($name, 0, 4) .  '*' x ((length $name)  - 4);
+  my $obscured_email = substr($email, 0, 4) . '*' x ((length $email) - 4);
+        
+  my $ptitle = $page->title;
+  my $purl = $page->url;
+        
+$content .= <<END;
+
+
+Reported by: $obscured_name ($obscured_email) (obscured for privacy)
+Submitted From: $ptitle ($purl)
+
+END
+;
+
+  my $json         = new JSON;
+
+# Create a more informative title
+  my $pseudo_title = substr($content,0,35) . '...';
+  my $data = { title => $title . ': ' . $pseudo_title,
+	       body  => $content,
+	       labels => [ 'HelpDesk' ],
+  };
+
+  my $request_json = $json->encode($data);
+  $req->content($request_json);
+  
+  # Send request, get response.
+  my $lwp       = LWP::UserAgent->new;
+  my $response  = $lwp->request($req) or $c->log->debug("Couldn't POST");
+  my $response_json = $response->content;
+  my $parsed    = $json->allow_nonref->utf8->relaxed->decode($response_json);
+  
+  my $issue_url = $parsed->{html_url};
+  my $issue_title = $parsed->{title};
+  my $issue_number = $parsed->{number};
+  return ($issue_url,$issue_title,$issue_number);
+}
+
+sub _issue_email{
+#  my ($self,$c,$page,$new,$content,$change,$email, $name, $title) = @_;
+    my ($self,$params) = @_;
+
+    my $c       = $params->{c};
+
+    my $subject ='New Issue';
+    my $bcc     = $params->{reporter_email};
+    $subject    = '[wormbase-help] ' . $params->{issue_title} . ' (' . $params->{reporter_name} . ')';
+
+    foreach (keys %$params) {	
+	next if $_ eq 'c';
+	$c->stash->{$_} = $params->{$_};
+    }
+    $c->stash->{noboiler} = 1;
+    $c->stash->{timestamp} = time();
+    $c->log->debug(" send out email to $bcc");
+    $c->stash->{email} = {
+        header => [
+	    to => $c->config->{issue_email},
+	    cc => $bcc,
+	    "Reply-To" => "$bcc," . $c->config->{issue_email},
+	    from    => $c->config->{no_reply},
+	    subject => $subject, 
+	    ],
+	    template => "feed/issue_email.tt2",
+    };
+    
+    $c->forward( $c->view('Email::Template') );
 }
 
 
@@ -1228,7 +1281,7 @@ sub _get_search_result {
   }
 
   return { 'name' => {  url => $page->url, 
-                                label => $page->title,
+                                label => $page->title || $page->url,
                                 id => $page->title,
                                 class => 'page' },
             footer => "$footer",
@@ -1253,43 +1306,6 @@ sub _comment_rss {
  return \@rss;
 }
 
-sub _issue_rss {
-  my ($self,$c,$count) = @_;
-  my @issues = $c->model('Schema::Issue')->search(undef,{order_by=>'timestamp DESC'} )->slice(0, $count-1);
-  my $threads= $c->model('Schema::IssueThread')->search(undef,{order_by=>'timestamp DESC'} )->slice(0, $count-1);
-    
-  my %seen;
-  my @rss;
-  while($_ = $threads->next) {
-    unless(exists $seen{$_->issue_id}) {
-    $seen{$_->issue_id} =1 ;
-    my $time = ago((time() - $_->timestamp), 1);
-    push @rss, {  time=>$_->timestamp,
-          time_lapse=>$time,
-          people=>$_->user,
-          title=>$_->issue->title,
-          page=>$_->issue->page,
-          id=>$_->issue->issue_id,
-          re=>1,
-          } ;
-    }
-    last if(scalar(keys %seen)>=$count)  ;
-  };
-
-  map {    
-    my $time = ago((time() - $_->timestamp), 1);
-      push @rss, {      time=>$_->timestamp,
-                        time_lapse=>$time,
-                        people=>$_->reporter,
-                        title=>$_->title,
-                        page=>$_->page,
-                id=>$_->id,
-          };
-  } @issues;
-
-  my @sort = sort {$b->{time} <=> $a->{time}} @rss;
-  return \@sort;
-}
 
 # Template assignment is a bit of a hack.
 # Maybe I should just maintain
@@ -1367,7 +1383,7 @@ sub field_GET {
     # Include the full uri to the *requested* object.
     # IE the page on WormBase where this should go.
     # TODO: 2011.03.20 TH: THIS NEEDS TO BE UPDATED, TESTED, VERIFIED
-    my $uri = $c->uri_for( "/species", $class, $name );
+    my $uri = $c->uri_for( "/species", $class, $name )->path;
 
     $c->response->header( 'Content-Type' => $content_type );
     if ( $content_type eq 'text/html' ) {
@@ -1389,6 +1405,28 @@ sub field_GET {
     );
 }
 
+
+# Return the current version of acedb for the installation.
+# Just returns text.
+sub version :Path('/rest/version') :Args(0) :ActionClass('REST') {}
+
+sub version_GET {
+    my ( $self, $c ) = @_;
+    $c->log->debug("        ------> we're requesting the acedb version via rest");
+    my $api = $c->model('WormBaseAPI');
+    $self->status_ok(
+	$c,
+	entity => { 
+	    version => $api->version
+	}
+	);
+}
+
+
+sub _get_page {
+    my ( $self, $c, $url ) = @_;
+    return $c->model('Schema::Page')->search({url=>$url}, {rows=>1})->next;
+}
 
 =head1 AUTHOR
 

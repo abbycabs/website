@@ -5,27 +5,80 @@
 #
 ####################################################
 %]
+
+[% MACRO evidence(data, id, text, label) BLOCK %]
+  [% IF data %]
+  <div class="evidence [% IF text %] result[% END %]">
+    [% IF text.exists('label') %]
+	[% tag2link(text) %]
+    [% ELSE %]
+	[% markup("$text"); %]
+    [% END %]
+    [% id = id || 0; %]
+[% IF text %]    <div id="evidence_[% id %]" class="ev ui-helper-hidden" > [% END %]
+    [% FOREACH type IN data.keys -%] 
+        <b>[% type.replace('_',' ') %]</b>:
+        [% tags2link(data.$type, '; ') %]  
+        [% UNLESS loop.last %]<br>[% END %]
+    [% END %]
+[% IF text %]    </div>
+    <div class="ev-more">
+      <div class="v ev-more-line"></div>
+      <div class="ev-more-text"><span>[% label ? label : 'evidence' %]</span></div>
+      <div class="v ui-icon ui-icon-triangle-1-s"></div>
+    </div>
+[% END %]
+  </div>
+  [% ELSE %]
+    [% IF text.exists('label') %]
+	[% tag2link(text) %]
+    [% ELSE %]
+	[% markup(text) %]
+    [% END %]
+  [% END %]
+[% END %]
+
 [% MACRO user_login_info BLOCK %]
     [% UNLESS c.user_exists %]  
           <div style="padding:0.5em">
-            You must <h3 style="display:inline"><a class='lightbox' href="[% c.uri_for('/login') %]" >Login</a></h3> to use this feature
+            You must <h3 style="display:inline"><a class='lightbox' href="[% c.uri_for('/login').path %]" >Login</a></h3> to use this feature
           </div>
-          <script>
+        [% lighbox_js %]
+    [% END %]
+
+[% END %]
+
+[% MACRO lighbox_js BLOCK %]
+           <script>
 window.onload = getBox;
 function getBox(){
-  WB.getColorbox(function(){
+  WB.getPlugin("colorbox", function(){
     $jq(".lightbox").colorbox();
   });
 }
 
 getBox();
           </script>
-    [% END %]
 
 [% END %]
 
 
-[% MACRO linkUser(user,suppress_social) BLOCK;
+
+[% BLOCK toggle %]
+    <div class="toggle [% IF lazy; 'load-toggle'; END; %]" 
+         [% IF href; ' href="' _ href _ '"'; END; %]
+         [% IF id; ' id="' _ id _ '"'; END; %]>
+      <span style="float:left" class="ui-icon ui-icon-triangle-1-[% open ? 's' : 'e' %]"></span>
+      [% title %]
+    </div>
+    <div class="returned [% toggle_class %]" [% IF open; 'style="display:block"'; END;%]>
+        [% content %]
+    </div>
+[% END %]
+
+
+
+[% MACRO linkUser(user) BLOCK;
     IF (user.wbid && user.wb_link_confirm);
        text2link('person', user.wbid, user.username);
     ELSIF user.username;
@@ -116,7 +169,7 @@ END;
       <th>Reported by</th>
       <th>Responsible</th>
       [% IF c.check_user_roles('admin') %]
-        <th><button class="issue-delete" onClick="WB.issue.isDelete($jq(this));return false;" rel="[% c.uri_for('/rest','feed','issue') %]">Delete</button></th>
+        <th><button class="issue-delete" onClick="WB.issue.isDelete($jq(this));return false;" rel="[% c.uri_for('/rest','feed','issue').path %]">Delete</button></th>
       [% END %]
     </tr>
     [% even = 1 %]
@@ -128,7 +181,7 @@ END;
       %]
 
 
-      [% url = c.uri_for(c.controller('Tools').action_for('issue'),IS.id) %]
+      [% url = c.uri_for(c.controller('Tools').action_for('issue'),IS.id).path %]
       <tr 
         [% IF (even == 1); 
 	     myclass='r0';
@@ -141,7 +194,7 @@ END;
 	class="[% myclass %] [% IS.severity %] [% IS.state %]">
 
         <td><a href="[% url %]">[% IS.id %]</a></td>
-        <td ><a href="[% c.uri_for(c.controller('Tools').action_for('issue'),IS.id) %]">[% IS.title %]:</a> <i>[% txt = IS.content.chunk(30); txt.0; IF txt.1; '...'; END; %]</i></td> 
+        <td ><a href="[% c.uri_for(c.controller('Tools').action_for('issue'),IS.id).path %]">[% IS.title %]:</a> <i>[% txt = IS.content.chunk(30); txt.0; IF txt.1; '...'; END; %]</i></td> 
         <td>[% IF IS.is_private ; ' <em>private</em>' ; END %]</td>
         <td>[% IS.state %]</td>
         <td>[% IS.severity %]</td>
@@ -173,7 +226,10 @@ END;
 [%# The Floating Box on the overview widget %]
 [% BLOCK highlight_box %]
     <div class="detail-box ui-corner-all">
+       [% taxonomy %]
        [% content %]
+       [% wb_id_field %]
+       [% download_field %]
     </div>
 [% END %] 
 
@@ -182,16 +238,16 @@ END;
   [% path = c.req.path %]
   [% url = c.req.uri.path %]
 
-  [% label = c.req.path %]
+  [% label = c.req.args.-1 %]
   [% IF (c.action.name == 'index'); label = 'home'; 
-    ELSIF c.action.name.match('me'); label = 'my wormbase'; 
+    ELSIF c.action.name == 'me'; label = 'my wormbase'; 
     END; %]
-  [% is_obj = object.defined %]
-  [% IF object; label = object.name.data.label; END; %]
+  [% is_obj = object.name.data.defined('id') %]
+  [% IF object.name.data.id; label = object.name.data.label; END; %]
 [% END %]
 
 [% MACRO get_star_id(id) BLOCK;
-  id.remove('[:/ &\.\[\]]');
+  id.remove('[:/ &\.\[\]\+]');
   END %]
 
 [% MACRO make_star(wbid, href) BLOCK;
@@ -207,7 +263,7 @@ END;
 
     <div class="field
     [%# Add a class to disable / hide empty fields %]
-    [% TRY; IF (key && !fields.$key.data.defined) || disabled; " disabled "; END; END;%]
+    [% TRY; IF (key && !fields.$key.defined('data')) || disabled; " disabled "; END; END;%]
 
         ">
          <div class="field-title">
@@ -233,7 +289,8 @@ END;
 
          <div class="field-content">
              [% content %]
-          </div>
+         </div>
+         <span id="fade" class="desc">curator only field</span>
      </div>
   [% END %]
 [% END %]
@@ -257,38 +314,13 @@ END;
 
 [% MACRO build_data_table BLOCK;
 
-    # declare rows array
-        local_rows = [];
+      local_data = passed_data ? passed_data : fields.$key.data;
 
-    # loop through each element in <subroutine>.<return_data_key>.<... to array data> array
-        # (or through data passed in that may have been built by the caller)
-        local_data = passed_data ? passed_data : fields.$key.data;
-
-    FOREACH r IN local_data;
-        row = [];
-            
-        # loop through each element in order array (for columns) , declared above
-        FOREACH o IN order;         
-            # get value (val) from the row r
-                    val = r.$o;
-            IF val.match('^http');
-                 val='<a href="' _ val _ '">Lab link</a>';
-                        END;
-            
-            # enter data in row
-                    row.push(val);
-        END;
-                
-        # enter data row array into rows
-        local_rows.push(row);
-      END;
-              
-      # populate name array;
       headers = [];
       FOREACH o IN order; headers.push(columns.$o); END;
-      
+
       # generate table
-      jquery_data_table_html(headers, local_rows, "table_${key}_by", style);   
+      jquery_data_table_html(headers, local_data, "table_${key}_by" _ colorbox, style, table_build, order);   
 
     END; # END of MACRO
 %]
@@ -303,17 +335,17 @@ END;
      styling via javascript.
 %]
      
-[% MACRO jquery_data_table_html(table_headers,rows,table_name,style) BLOCK %]
-  [% IF rows && rows.size > 0;  
+[% MACRO jquery_data_table_html(table_headers, rows,table_name,style,table_build, columns) BLOCK %]
+  [% IF rows && rows.size > 0;
        # Set up some suitable defaults
-       IF rows.size < 11 || (rows.size < 51 && table_headers.size < 3);
+       IF rows.size < 11 || (rows.size < 31 && table_headers.size < 3);
           paginate        = 'false';
           pagination_type = 'false';
       	  length          = 'false';
       	  lengthMenu      = 'false';
           filter          = 'false';
           info            = 'false';
-       ELSIF rows.size < 51;
+       ELSIF rows.size < 31;
           paginate        = 'false';
           pagination_type = 'false';
       	  length          = 'false';
@@ -329,20 +361,9 @@ END;
       	  info            = 'true'; 
       END;
 
-   %]
+     UNLESS table_build;
 
-    <script type="text/javascript" >
-        WB.getDataTables(function(){
-          $jq('#[% table_name %]').dataTable({
-            "bPaginate"        : [% paginate %],
-            "bLengthChange"    : [% length   %],
-            "sPaginationType"  : "[% pagination_type %]",
-            "bFilter"          : [% filter %],      
-            "bInfo"            : [% info %],
-            [% style %]
-          });
-        });
-    </script>
+   %]
 
     <table cellpadding="0" cellspacing="0" border="0" class="display" id="[% table_name %]">
     <thead>
@@ -353,47 +374,137 @@ END;
         </tr>
     </thead>
     <tbody>
-        [% 
-                FOREACH row IN rows;
-           '<tr>';
-                   FOREACH cell IN row;
-              '<td>'; 
-                      IF cell.species.defined;
-                          '<span class="species">' _ cell.genus.chunk(1).0 _ '. ' _ cell.species _ '</span>';
-                      ELSIF cell.class.defined;
-                          tag2link(cell);
-                  ELSIF cell.match('ARRAY');
-                  cell.join('<br>');
-              ELSIF cell.evidence.check.defined;
-              'here';
-                          '<a class="tooltip" href="#" title="evidence" rel="/rest/evidence/gene/'
-              _ obj.name.data.id 
-              _ '/'
-              _ cell.evidence.tag
-              _ '/'
-              _ cell.evidence.index 
-              _ '/'
-              _ cell.evidence.right
-              _ '"></a>';             
-                      ELSE;
-                  cell;
-                      END;
-              '</td>';
-           END;
-           '</tr>';
-           END;
+        [%
+          FOREACH row IN rows;
+            '<tr>';
+	    IF ref(row) == 'HASH';
+		FOREACH col IN columns;
+		    cell = row.$col;
+            scell = "$cell";
+		    IF scell.match('^http');
+			cell='<a href="' _ cell _ '">Lab link</a>';
+		    END;
+		    '<td>';
+		    cell_content(cell);
+		    '</td>';
+		END;
+	    ELSE;
+		FOREACH cell IN row;
+		    '<td>';
+		    cell_content(cell);
+		    '</td>';
+		END;
+	    END;
+            '</tr>';
+          END;
              %]
     </tbody>
+  </table>
+    [% END %]
+    <script type="text/javascript" >
+        WB.getPlugin("dataTables", function(){
+          $jq('#[% table_name %]').dataTable({
+            "bPaginate"        : [% paginate %],
+            "bLengthChange"    : [% length   %],
+            "sPaginationType"  : "[% pagination_type %]",
+            "bFilter"          : [% filter %],
+            "bInfo"            : [% info %],
+            [% style %]
+          });
+        });
+    </script>
+   [% END %]
 
-      </table>
-   [% END %] 
+[% END %]
 
-[% END %] 
+[% MACRO interaction_cell(cell) BLOCK;
+    '<table id="interaction_cell_' _ loop.index _ '">';
+    IF cell.interaction.Effector || cell.interaction.Effected;
+      '<tr>';
+	  '<td>' _ tags2link(cell.interaction.Effector) _ '</td>';
+	  '<td style="font-size:25px">';
+	  IF cell.interaction.Effector.size > 1; '}'; END;
+	  '&rarr;</td>';
+	  '<td>' _ tags2link(cell.interaction.Effected) _ '</td>';
+      '</tr>';
+    END;
+    IF cell.interaction.Non_directional;
+      '<tr>';
+	  '<td colspan="3">';
+	  FOREACH val IN cell.interaction.Non_directional;
+	      tag2link(val);
+	      UNLESS loop.last;
+		  ' &mdash; ';
+	      END;
+	  END;
+	  '</td>';
+      '</tr>';
+    END;
+    '</table>';
+END; %]
+
+[% MACRO show_genotype(obj) BLOCK;
+	genstr = obj.str;
+	FOREACH key IN obj.data.keys.sort;
+	    lnk = tag2link(obj.data.$key);
+	    genstr = genstr.replace(key.replace('\-', '\-'), lnk);
+	END;
+	genstr;    
+END; %]
+
+[% MACRO cell_content(cell) BLOCK;
+    IF ref(cell) == 'HASH';
+      IF cell.defined('species');
+          '<span class="species">' _ cell.genus.chunk(1).0 _ '. ' _ cell.species _ '</span>';
+      ELSIF cell.defined('class');
+          IF cell.defined('label');
+            tag2link(cell);
+          ELSE;
+            searchlink(cell.class, cell.id, cell.id);
+          END;
+      ELSIF cell.defined('evidence');
+          evidence(cell.evidence,table_name _ index, cell.text, 'details');
+      ELSIF cell.defined('interaction');
+          interaction_cell(cell);
+      ELSIF cell.defined('genotype');
+          show_genotype(cell.genotype);
+      ELSE;
+
+      # assumes that hash passed to cell should be output as the key followed by its value
+      # e.g. evidence column of phenotypes widget of gene unc-26 contains alleles, xgenes, and rnai lists in one cell
+      FOREACH key IN cell.keys.sort;
+        "$key";
+        cell_content(cell.$key);
+      END;
+      END;
+	ELSIF ref(cell) == 'ARRAY';
+	  IF cell.size > 10;
+	      WRAPPER toggle title=cell.size _ ' Results';
+            FOREACH item IN cell;
+              cell_content(item);
+              IF !item.defined('evidence') && !loop.last;
+                  '<br />';
+              END;
+            END;
+	      END;
+	  ELSE;
+        FOREACH item IN cell;
+          cell_content(item);
+          IF !item.defined('evidence') && !loop.last;
+              '<br />';
+          END;
+        END;
+	  END;
+	ELSE;
+	   cell;
+	END;
+  END;
+%]
 
 [% MACRO empty_widget_check BLOCK;
   not_empty;
   FOREACH field IN fields.keys;
-    IF fields.$field.data.defined;
+    IF fields.$field.defined('data');
       not_empty = 1;
       LAST;
     END;
@@ -401,21 +512,6 @@ END;
   [% UNLESS not_empty %]
     <span class="caveat-emptor">No [% (c.config.sections.species.$class.widgets.$widget.title || c.config.sections.resources.$class.widgets.$widget.title) FILTER lower %] data for [% object.name.data.label %]</span>
   [% END %]
-[% END %]
-
-
-
-[% 
-  # For dsiplaying a list of objects in a field
-  # Should probably be expanded to included some actual formatting,
-  # What to do if there are too many objects, etc
-%]
-[% MACRO object_list(objects) BLOCK %]
-
-            [% FOREACH object IN objects.keys %]
-             [%- tag2link(objects.$object) -%]
-                     [%- UNLESS loop.last -%], [% END %]
-            [% END %]
 [% END %]
 
 
@@ -446,13 +542,13 @@ END;
          
                 <div id="widget-footer" class="ui-helper-hidden">
 [% UNLESS type.match('(tool)|(me)') %]
-                    <a  tip="download" onClick='$jq(this).toggleClass("ui-state-highlight");' class="button tip-simple tr feed ui-corner-all"  rel="[% c.uri_for('/rest','feed','download',class,this_object_id,w.id,this_object_label) %]"><span class="ui-icon ui-icon-arrowthickstop-1-s ui-button"></span></a>
+                    <a   onClick='$jq(this).toggleClass("ui-state-highlight");' class="button feed ui-corner-all"  rel="[% c.uri_for('/rest','feed','download',class,this_object_id,w.id,this_object_label).path %]"><span class="ui-icon ui-icon-arrowthickstop-1-s ui-button"></span><span>download</span></a>
 [% END %] 
 [% IF id.match('(static-widget)') && (id != 'static-widget--1')  %]
     [% IF c.check_any_user_role("admin", "curator", "editor") %]
-                    <a  tip="edit" id="edit-button"  onClick='WB.StaticWidgets.edit("[% id %]");' class="button tip-simple tr ui-corner-all"><span class="ui-icon ui-icon-pencil ui-button"></span></a>
+                    <a  tip="edit" id="edit-button"  onClick='WB.StaticWidgets.edit("[% id %]");' class="button ui-corner-all"><span class="ui-icon ui-icon-pencil ui-button"></span></a>
     [% END %]
-                    <a  tip="view history" id="history-button" onClick='WB.StaticWidgets.history("[% id %]");' class="button tip-simple tr ui-corner-all"><span class="ui-icon ui-icon-clock ui-button"></span></a>
+                    <a  tip="view history" id="history-button" onClick='WB.StaticWidgets.history("[% id %]");' class="button ui-corner-all"><span class="ui-icon ui-icon-clock ui-button"></span></a>
 [% END %]
                     
 
@@ -537,31 +633,30 @@ END;
 
 
 [% MACRO other_names BLOCK; 
-      WRAPPER $field_block title="Other names" key="other_names";
-           FOREACH name IN fields.other_names.data;
-              tag2link(name);
-              "<br /";
-           END;
+      WRAPPER $field_block title="Other names" key="other_names";;
+          fields.other_names.data.join(', ');
       END;
 END;
 %]
 
 [% MACRO best_blastp_matches BLOCK;
-   IF c.stash.fields.best_blastp_matches.data;
+   matches = c.stash.fields.best_blastp_matches.data;
+   IF matches.hits;
    WRAPPER $field_block title="Best BLASTP matches" key="best_blastp_matches";
     
-      build_data_table(order=['taxonomy','hit','description','evalue','percent'],
+      build_data_table(order=['evalue','taxonomy','hit','description','percent'],
                        columns={ taxonomy => 'Species',
                                  hit      => 'Hit',
                                  description => 'Description',
                                  evalue   => 'BLAST e-value',
                                  percent  => '% Length'
                                 },
-                       key='best_blastp_matches', 
+                       key='best_blastp_matches',
+                       passed_data=matches.hits,
                        style = '"aoColumns": [ null,null,null,{ "sType": "numeric" },null]');
            '<div id="blast_details">';
-'<div class="toggle load-toggle" href="' _  c.uri_for('/rest','field','protein',object.name.data.id,'blast_details') _ '" id="blast_details_toggle" >View full BLASTP List</div>'; 
-'<div class="returned field" style="width:100%"></div>';
+    WRAPPER toggle title="View full BLASTP List" lazy=1 href=c.uri_for('/rest','field','protein',"$matches.biggest",'blast_details').path id="blast_details_toggle";
+    END;
          '</div>';
     END;
   END;
@@ -643,7 +738,7 @@ END;
 
           [% IF fields.central_dogma.data.transcripts.size > 0 %]
             <div>
-                 <img src="/img/arrows/right.gif">
+               <span class="rarrow"></span>
             </div>  
             <div>
                 <b>Transcripts</b><br />
@@ -655,7 +750,7 @@ END;
 
           [% IF fields.central_dogma.data.cds.size > 0 %]
             <div>
-                 <img src="/img/arrows/right.gif">
+               <span class="rarrow"></span>
             </div>  
             <div>
                 <b>CDS</b><br />
@@ -674,14 +769,21 @@ END;
      # The Laboratory field
      # Expects the stash to contain the "laboratory" key.
      WRAPPER $field_block title="$title"||'Laboratory' key="laboratory";
-         tag2link(fields.laboratory.data.laboratory);
+         tag2link(fields.laboratory.data.0.laboratory);
  
          # Include the lab representative, if one exists         
-         IF fields.laboratory.data.representative;
-              " (" ; 
-              tag2link(fields.laboratory.data.representative); 
+         IF fields.laboratory.data.0.representative;
+              "<br /> (" ; 
+              tag2link(fields.laboratory.data.0.representative); 
               ")" ; 
          END;
+
+	 # HACK! On strain pages, link directly to the CGC
+	 IF title == "Available From";
+	     IF	fields.laboratory.data.0.laboratory.label.match('CGC');
+	        '<br /><a href="http://www.cbs.umn.edu/CGC/" target="_blank">Visit the CGC home page</a>.';
+             END;
+	 END;	 
      END;
   END;
 %]
@@ -698,11 +800,10 @@ END;
 
    WRAPPER $field_block title="Phenotypes" key="phenotypes";
 
-       build_data_table(order=['phenotype','description','remarks'],
+       build_data_table(order=['phenotype','evidence'],
                         columns={ 
                         phenotype    => 'Phenotype',
-                description  => 'Description',
-            remarks       => 'Remarks',
+                evidence  => 'Evidence'
                     },
                     key='phenotypes');
     END;
@@ -713,11 +814,10 @@ END;
 
    WRAPPER $field_block title="Phenotypes NOT Observed" key="phenotypes_not_observed";
 
-   build_data_table(order=['phenotype','description','remarks'],
-                    columns={ 
-                        phenotype      => 'Phenotype',
-                description    => 'Description',
-            remarks        => 'Remark',
+       build_data_table(order=['phenotype','evidence'],
+                        columns={ 
+                        phenotype    => 'Phenotype',
+                evidence  => 'Evidence'
                     },
                     key='phenotypes_not_observed');
       END;            
@@ -729,16 +829,26 @@ END;
 [% MACRO remarks BLOCK;
    # Expects the remarks key to be defined in the data stash
    # Presents field in a toggle by default; pass "no_toggle=1" to conceal.
-   IF no_toggle == 1;  
-       WRAPPER $field_block title="Remarks" key="remarks";
-          markup(fields.remarks.data.join('<br>'),0);
-       END;
+
+   contents = '';
+   IF fields.remarks.data.0.defined('text');
+      FOREACH obj IN fields.remarks.data;
+        contents = contents _ evidence(obj.evidence, '', obj.text);
+      END;
+   ELSE;
+      contents = contents _ markup(fields.remarks.data.join('<br />'),0);
+   END;
+
+   IF no_toggle == 1 && contents;  
+       #WRAPPER $field_block title="Remarks" key="remarks";
+        '<h4>Remarks:</h4>';
+          contents;
+       #END;
    ELSE;
       WRAPPER $field_block title="" key="remarks";
-         '<div class="toggle">Curatorial remarks</div>';
-         '<div class="returned">';
-              markup(fields.remarks.data.join('<br />'),0);
-         '</div>';
+        WRAPPER toggle title="Curatorial remarks";
+              contents;
+        END;
       END;
    END;
 END;
@@ -747,14 +857,14 @@ END;
 [% MACRO summary BLOCK;
     # Currently only includes Summary but could encompass other tags
     WRAPPER $field_block title="Summary" key="summary";
-            IF fields.summary.data.defined; fields.summary.data; END;
+            fields.summary.data;
     END;
 END;
 %]
 
 [% MACRO status BLOCK; 
       WRAPPER $field_block title="Status" key="status";
-           IF fields.status.data.defined; fields.status.data; END;
+           fields.status.data || 'Live';
       END;
 END;
 %]
@@ -771,47 +881,139 @@ END;
 END;
 %]
 
-[% MACRO sequence(field_key) BLOCK; 
+
+[% MACRO error BLOCK; %]
+  [% IF c.stash.error %]
+  <br />
+  <div class="ui-state-error ui-corner-all description">
+    <p>
+    <span class="ui-state-error-text">[% c.stash.error %]</span>
+    </p>
+  </div>
+  [% END %]
+[% END;
+%]
+
+
+[% MACRO wb_id_field BLOCK; 
+   IF fields.name.data;
+   WRAPPER $field_block title="WormBase ID";
+          fields.name.data.id;
+   END;
+   END;
+END;
+%]
+
+[% MACRO download_field BLOCK;
+   class = (ACE2WB_MAP.$class || class) FILTER lower;
+   IF downloadable(class);
+   WRAPPER $field_block title="Download";
+   '<a href="' _ c.uri_for('/rest/widget', class, fields.name.data.id, 'sequences').path _ '?colorbox=1" class="button ui-corner-all slink" data-class="protein"><span class="ui-icon ui-icon-arrowthickstop-1-s ui-button"></span></a>';
+   END;
+  END;
+END;
+%]
+
+[% MACRO generate_file_download(filename, content, cname) BLOCK;
+  '<div class="button ui-corner-all generate-file-download ' _ cname _ '"><span class="ui-icon ui-icon-arrowthickstop-1-s"></span><span>download</span>'
+    _ '<div id="filename" class="ui-helper-hidden">' _ filename _ '</div>'
+    _ '<div id="content" class="ui-helper-hidden">' _ content  _ '</div>'
+_ '</div>';
+END;
+%]
+
+[% MACRO format_sequence(seq, header) BLOCK;
+    format_seq = header ? ">$header\n" : "";
+    FOREACH line IN seq.chunk(80);
+      format_seq = format_seq _ line;
+      UNLESS loop.last;
+        format_seq = format_seq _ "\n";
+      END;  
+    END;
+    format_seq;
+END;
+%]
+
+[% MACRO sequence(field_key, field_title, open_toggle) BLOCK; 
     UNLESS field_key.defined; field_key = 'sequence'; END;
 
-    sequence_list = fields.sequence.data.sequence.defined ? [fields.sequence.data] : fields.sequence.data;
-    to_print;
+    IF fields.$field_key.data.defined;
+      sequence_list = fields.$field_key.data.sequence.defined ? [fields.$field_key.data] : fields.$field_key.data;
+    ELSIF (field_key.defined('sequence') || field_key.0.defined('sequence'));
+      sequence_list = field_key.defined('sequence') ? [field_key] : field_key;
+      field_key = '';
+    END;
+    sequences = {};
 
     FOREACH obj IN sequence_list;
-      IF obj.sequence.defined;
+      IF obj.defined('sequence');
         seq = obj.sequence;  
         NEXT IF seq.length == 0;
-        format_seq = "";
-        FOREACH line IN seq.chunk(80);
-          format_seq = format_seq _ line.chunk(10).join(' ');
-          UNLESS loop.last;
-            format_seq = format_seq _ "\n";
-          END;  
-        END;
 
-        to_print = to_print _ '<div class="sequence-download">'
-                                  _ '<form action="/rest/download/">'
-                                  _ '<input type="hidden" name="type" value="' _ object.name.data.id _ '.fa" >'
-                                  _ '<input type="hidden" name="sequence" value="' _ format_seq  _ '" >'
-                                  _ '<input type="submit" value="download">'
-                                  _ '</form>'
-                            _ '</div>'
+      
+        format_seq = seq.match('\s') ? '>' _ object.name.data.label _ ' ' _ obj.header  _ "\n" _ seq  : format_sequence(seq, obj.header || object.name.data.label);
+        title = obj.header || 'sequence';    
+        seq_html = format_seq | remove('(\<(/?[^\>]+)\>)');
+        title_html = title | remove('(\<(/?[^\>]+)\>)');
+        fname = object.name.data.id _ title_html _ '.fasta';
+        sequences.$obj.download = generate_file_download(fname, seq_html, "sequence-download");
 
-        _ '<div class="toggle">view sequence (' _ obj.length _' ' _ (obj.type == 'aa' ? 'aa' : 'bp') _ ')</div>'
-        _ '<div class="sequence-container">'
-          _ format_seq.replace('\n','<br/>')
-        _ '</div>';
+        sequences.$obj.seq = format_seq | replace('\n', '<br />');
+        sequences.$obj.title = 'view ' _ title;
+        IF obj.length; sequences.$obj.title = sequences.$obj.title  _ ' (' _ (obj.length) _' ' _ (obj.type ? obj.type : 'bp') _ ')'; END;
       ELSE;
-        to_print = to_print _ obj;
+        sequences.$obj.download = obj;
       END;
     END;
-    IF to_print.length > 0;
-      WRAPPER $field_block title="Sequence" key=field_key;
-        to_print;
+    IF sequences.keys.size > 0;
+      WRAPPER $field_block title=(field_title.defined ?  field_title : "Sequence") key=field_key;
+        FOREACH obj IN sequences.keys;
+          '<div class="seq-toggle">';
+          sequences.$obj.download;
+          IF sequences.$obj.seq;
+            WRAPPER toggle title=sequences.$obj.title toggle_class="sequence-container" open=open_toggle;
+              sequences.$obj.seq;
+            END;
+          END;
+          '</div>';
+        END;
       END;
+    ELSE;
+      '<div class="caveat-emptor">No sequence data available for download</div>';
     END;
 END;
 %]
+
+
+[% MACRO strains BLOCK;
+     venn("Carrying " _ tag2link(object.name.data) _ " alone", 
+                                         fields.strains.data.carrying_gene_alone,
+            "Available from the CGC",    fields.strains.data.available_from_cgc,
+            "",                          fields.strains.data.carrying_gene_alone_and_cgc,
+            "Other strains",             fields.strains.data.others);
+
+    '<br />';
+
+    rows = [];
+    FOREACH type IN fields.strains.data.keys.sort;
+      cgc = (( type == 'available_from_cgc') || (type == 'carrying_gene_alone_and_cgc')) ? 1 : 0;
+      FOREACH strain IN fields.strains.data.$type;
+      rows.push( { strain  = tag2link(strain),
+                  genotype        = strain.genotype,
+                  cgc        = cgc ? external_link('cgc', 'yes', strain.id) : 'no',
+                } );
+      END;
+    END;
+
+       build_data_table(order=['strain','genotype','cgc'],
+                         columns={ strain    => 'Strain',
+                              cgc       => 'Available<br /> from CGC?',
+                          genotype  => 'Genotype',
+                                 },
+                         passed_data=rows);
+  END;
+%]
+
 
 [%# 
     #######################################################
@@ -837,59 +1039,23 @@ END;
        FOREACH species IN species_list;
             IF fields.$key.data.$species > 0;
                 WRAPPER $field_block title="" key="$key";
-
-                   # declare array of columns named via keys in the data structure
-               IF key == 'current_genes';
-                    order = ['species','locus', 'sequence'];
-            
-                 # declare hash for column headers, keyed as above
-                     headers = {   species  => 'Species',
-                                       locus    => 'Locus',
-                                       sequence => 'Sequence' };
-                  ELSE;
-                     order = ['species','former_name', 'new_name','sequence'];
-               
-                 # declare hash for column headers, keyed as above
-                     headers = {   species     => 'Species',
-                                       former_name => 'Former name',
-                       new_name    => 'New name',
-                                       sequence    => 'Sequence' };   
-                  END;
-
-                 # declare rows array
-                 rows = [];
-  
-                 FOREACH r IN fields.$key.data.$species;
-                       row = [];
-                   # loop through each element in order array (for columns) , declared above
-                   FOREACH o IN order;          
-                     # get value (val) from the row r
-                             val = r.$o;
-                     # enter data in row
-                             row.push(val);
-                       END;
-                   # enter data row array into rows
-                           rows.push(row);
-                 END;
-                      
-                 # populate name array;
-             names = [];
-             FOREACH o IN order; names.push(headers.$o); END;
-                 table_count = table_count + 1;               
-
-                  # generate table
-                 '<div class="toggle">';
-                         '<span class="species">' 
-                          _ species 
-                          _ '</span> (' 
-                          _ fields.$key.data.$species.size 
-                          _ ' members)'
-                          _ '</div>';
-                 '<div class="returned">';
-#                    dataTable_list(names, rows, "table_${species}_${key}");
-                    jquery_data_table_html(names, rows, "table_${species}_${key}_${table_count}");
-                '</div>';         
-         END; # END of nested WRAPPER
+		  WRAPPER toggle title=species _ '(' _ fields.$key.data.$species.size _ ' members)';
+		    IF key == 'current_genes';
+		      build_data_table(
+			  order=['locus', 'sequence'], 
+			  columns={ locus    => 'Locus',
+				    sequence => 'Sequence' },
+			  passed_data=fields.$key.data.$species, key= key _ loop.index);
+		    ELSE;
+		      build_data_table(
+			  order=['former_name', 'new_name', 'sequence'], 
+			  columns={ former_name => 'Former name',
+				    new_name    => 'New name',
+				    sequence => 'Sequence' },
+			  passed_data=fields.$key.data.$species, key= key _ loop.index);
+		    END;
+		  END; #END of toggle WRAPPER
+		END; # END of nested WRAPPER
            END; # END IF species contains data
          END; # END of SPECIES
      END; # END of primary WRAPPER 
@@ -911,7 +1077,7 @@ END;
     [% widget_name = widget.widget_title %]
     [% w = { id = 'static-widget-' _ widget.widget_id
             title = widget.widget_title
-            href =  c.uri_for('/rest','widget','static',widget.widget_id)
+            href =  c.uri_for('/rest','widget','static',widget.widget_id).path
             type = section == 'species' ? class : (section ? section : 'static')
             };
     %]
@@ -924,10 +1090,10 @@ END;
       [% widgets.push(w) %]
     [% END %]
   [% END %]
-  [% IF c.check_user_roles('admin') %]
+  [% IF c.check_any_user_role('admin', 'curator') %]
     [% w = { id = 'static-widget-0'
             title = 'Add new widget...'
-            href =  c.uri_for('/rest','widget','static','0') _ '?path=' _ c.req.uri.path  _ '&edit=1'
+            href =  c.uri_for('/rest','widget','static','0').path _ '?path=' _ c.req.uri.path  _ '&edit=1'
             type = section == 'species' ? class : (section ? section : 'static')
             };
     %]
@@ -958,7 +1124,7 @@ END;
       IF class == 'all';
         section_fetch = c.config.sections.species_list.$species;
       ELSE;
-        section_fetch = c.config.sections.species_list.$species.$class;
+        section_fetch = c.config.sections.species.$class;
       END;
     ELSE;
         section_fetch = c.config.sections.$section;
@@ -1001,7 +1167,7 @@ END;
 
     w = {  id    = widget_name
             title = widget.title
-            href  = c.uri_for(base, arg1, this_object_id, widget_name)
+            href  = c.uri_for(base, arg1, is_class_index ? '*' : this_object_id, widget_name).path
             type  = section == 'species' ? class : section
           };
 
@@ -1013,16 +1179,14 @@ END;
 
   # is_static refers to pages that don't handle objects (/resources/reagents)
   IF is_class_index && !is_static;
-    index_widgets = ['browse', 'basic_search'];
-    IF((species == 'all')||(class == 'all'));
-      index_widgets.push('summary');
-    END;
+    index_widgets = (c.config.sections.species_list.$species || !species) ? ((species == 'all')||(class == 'all')) ? ['browse', 'basic_search', 'summary'] : ['browse', 'basic_search'] : ['data_unavailable'];
+
 
     FOREACH widget_name IN index_widgets;
       t = widget_name FILTER ucfirst;
       widgets.push({ id = widget_name
                 title = t.replace('_', ' ')
-                href  = c.uri_for('/rest','widget', 'index', species, class, widget_name),
+                href  = c.uri_for('/rest','widget', 'index', species, class, widget_name).path,
                 type = section == 'species' ? class : section
             });
     END;
@@ -1032,14 +1196,16 @@ END;
   add_static_widgets;
 
   # Add tools.
-  IF section_fetch.tools.keys.size || 0 > 0;
     tool_list = section_fetch.tools.keys.sort || [];
 
     # object pages automatically get the tree display
-    IF object; tool_list.unshift('tree'); END;
+    IF object.name.data.id; tool_list.unshift('tree'); 
+      IF c.check_any_user_role('admin'); tool_list.unshift('epic'); END;
+    ELSIF (is_class_index && (class != 'all')); tool_list.unshift('schema'); END;
 
-
-    widgets.push({ title="Tools" type="title"}); 
+    IF tool_list.size > 0; 
+      widgets.push({ title="Tools" type="title"}); 
+    END;
     FOREACH widget_name IN tool_list;
         widget = c.config.sections.tools.$widget_name;
         # What context should this widget be displayed in ?
@@ -1051,14 +1217,13 @@ END;
         
         w = { id = widget_name
               title = widget.title
-              href =  c.uri_for('/tools',widget.name, 'run') _ '?inline=1&class=' _ class _ '&name=' _ this_object_id _ '&sequence=' _ this_object_id,
+              href =  c.uri_for('/tools',widget.name, 'run').path _ '?inline=1&class=' _ class _ '&name=' _ this_object_id _ '&sequence=' _ this_object_id,
 
               type = 'tools'
               };
       
         widgets.push(w);
     END;
-  END;
 
   PROCESS "shared/sidebar_structure.tt2" widgets=widgets overview=overview;
 %]
@@ -1092,9 +1257,9 @@ END;
      
       # No need to append the name for our final path for class documentation; HACK HACK HACK!
       IF path.match("api-rest/class");
-              myhref = c.uri_for('/rest','widget',path);
+              myhref = c.uri_for('/rest','widget',path).path;
       ELSE;
-              myhref = c.uri_for('/rest','widget',path,name);
+              myhref = c.uri_for('/rest','widget',path,name).path;
       END;
       
       w = { id    = name
@@ -1112,7 +1277,7 @@ END;
       t = widget_name FILTER ucfirst;
       w = { id = widget_name
             title = t _ 's ' _ '<a class="' _ widget_name _ '-count"></a>'
-            href =  c.uri_for('/rest','feed',widget_name,class,this_object_id,'',this_object_label) _ '?url=' _ c.req.uri.path
+            href =  c.uri_for('/rest','feed',widget_name,class,this_object_id,'',this_object_label).path _ '?url=' _ c.req.uri.path
             type = 'tools'
           };
       widgets.push(w);

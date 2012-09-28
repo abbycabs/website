@@ -1,0 +1,13 @@
+     [% tag2link(item.name) %] 
+      <span>[[% text2link('omim',item.name.id,'OMIM:' _ item.name.id) %]] </span>
+    </li>
+  
+    [% IF item.gene %]
+    <span>Related worm [% pluralize('gene', item.gene) %]:
+      [% tags2link(item.gene, ', ') %]
+    </span>
+    [% END %]
+ 
+    <div class="text-min">
+      [% item.description.join("<br />") %]  
+    </div>

@@ -179,6 +179,7 @@ sub is_dead {
     my $self = shift;
     my $object = $self->object;
     my $alternate = $object->Dead->right if $object->Dead(0);
+    
     return {
         description => "The Note of the phenotype when it's retired and replaced by another.",
         data        => $alternate ? $self->_pack_obj($alternate,$self->best_phenotype_name($alternate)) : undef,
@@ -242,18 +243,16 @@ sub related_phenotypes {
     my $result;
     if ( $phenotype->Related_phenotypes(0) ) {
         foreach my $tag (qw/Specialisation_of Generalisation_of/) {
-            ( my $type = $tag ) =~ s/_/ /g;
-            my @entries;
-            foreach my $ph ( $phenotype->$tag ) {
-		push @entries,$self->_pack_obj($ph,$self->best_phenotype_name($ph));	       
-            }
-	    # Americanize. Sorry.
-	    $type =~ s/isation/ization/g;
-            $result->{$type} = \@entries;
+          ( my $type = $tag ) =~ s/_/ /g;
+          my @entries;
+          foreach my $ph ( $phenotype->$tag ) {
+            push @entries,$self->_pack_obj($ph,$self->best_phenotype_name($ph));	       
+          }
+          $result->{$type} = \@entries if (scalar @entries > 0);
         }
     }
     return { description => 'The generalized and specialized terms in the ontology for this phenotype.',
-	     data        => $result,
+	     data        => (scalar keys %{$result} > 0) ? $result : undef,
     };
 }
 
@@ -413,7 +412,7 @@ sub rnai {
     my $object    = $self->object;
     my $data_pack = $self->_rnai('RNAi');
     return {
-        'data'        => $data_pack,
+        'data'        => @$data_pack ? $data_pack : undef,
         'description' => 'RNAi experiments associated with this phenotype'
     };
 }
@@ -473,7 +472,7 @@ sub rnai_not {
     my $object    = $self->object;
     my $data_pack = $self->_rnai('Not_in_RNAi');
     return {
-        data        => $data_pack,
+        data        => @$data_pack ? $data_pack : undef,
         description => 'rnais not associated with this phenotype'
     };
 }
@@ -543,7 +542,7 @@ sub variation {
     my $object    = $self->object;
     my $data_pack = $self->_variation('Variation');
     return {
-        data        => $data_pack,
+        data        => @$data_pack ? $data_pack : undef,
         description => 'variations associated with this phenotype'
     };
 }
@@ -603,7 +602,7 @@ sub variation_not {
     my $object    = $self->object;
     my $data_pack = $self->_variation('Not_in_Variation');
     return {
-        'data'        => $data_pack,
+        'data'        => @$data_pack ? $data_pack : undef,
         'description' => 'variations not associated with this phenotype'
     };
 }
@@ -673,7 +672,7 @@ sub transgene {
     my $object    = $self->object;
     my $data_pack = $self->_transgene('Transgene');
     return {
-        'data'        => $data_pack,
+        'data'        => @$data_pack ? $data_pack : undef,
         'description' => 'transgenes associated with this phenotype'
     };
 }
@@ -733,7 +732,7 @@ sub transgene_not {
     my $object    = $self->object;
     my $data_pack = $self->_transgene('Not_in_Transgene');
     return {
-        'data'        => $data_pack,
+        'data'        => @$data_pack ? $data_pack : undef,
         'description' => 'transgenes not associated with this phenotype'
     };
 }
@@ -928,7 +927,7 @@ sub _variation {
 	{
             variation => $tag_info,
             #gene      => $gene_info,
-            type      => "$variation_type",
+            type      => $variation_type && "$variation_type",
             species   => $species_info
 	};
     }
@@ -968,8 +967,8 @@ sub _rnai {
 	    rnai     => $tag_info,
             sequence => $sequence_info,
             species  => $species_info,
-            genotype => "$genotype",
-            treatment => "$treatment",
+            genotype => $genotype && "$genotype",
+            treatment => $treatment && "$treatment",
 	    strain    => $strain,		
 	};
     }

@@ -26,16 +26,13 @@ sub resources :Path('/resources') :Args(0)   {
     if(defined $c->req->param("inline")) {
       $c->stash->{noboiler} = 1;
     }
-      $c->stash->{is_class_index} = 1;      
+
+    $c->stash->{is_class_index} = 1;      
     $c->stash->{template} = "resources/report.tt2";
-      $c->stash->{class}   = 'all';
+    $c->stash->{class}   = 'all';
 
-    # get static widgets for this page
-    my $page = $c->model('Schema::Page')->search({url=>$c->req->uri->path}, {rows=>1})->next;
-
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
-#     $c->stash->{template} = 'report.tt2';
+    # get static widgets/layout info for this page
+    $self->_setup_page($c);
 }
 
 # eg /resources/{CLASS}
@@ -47,11 +44,8 @@ sub resources_class_index :Path('/resources') :Args(1)  {
     
     $c->stash->{template} = "resources/report.tt2";
 
-    # get static widgets for this page
-    my $page = $c->model('Schema::Page')->search({url=>$c->req->uri->path}, {rows=>1})->next;
-
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
+    # get static widgets/layout info for this page
+    $self->_setup_page($c);
     
     if (defined $c->config->{'sections'}->{'resources'}->{$class}){
       $c->stash->{section} = 'resources';
@@ -145,20 +139,15 @@ sub _get_report {
     $c->stash->{class}      = $class;
     $c->log->debug($name);
 
-    # get static widgets for this page
-    my $page = $c->model('Schema::Page')->search({url=>$c->req->uri->path}, {rows=>1})->next;
+    # get static widgets/layout info for this page
+    $self->_setup_page($c);
 
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
+    my $api = $c->model('WormBaseAPI');
+    my $object = $api->xapian->_get_tag_info($c, $name, lc($class));
 
-    my $object = $c->model('WormBaseAPI')->fetch({
-        class  => ucfirst($class),
-        name   => $name,
-    }); # error handling?
+    $c->res->redirect($c->uri_for('/search',$class,"$name")->path."?redirect=1")  if( !($object->{label}) || $object->{id} ne $name || $object->{class} ne lc($class));
 
-    $c->res->redirect($c->uri_for('/search',$class,"$name")."?redirect=1")  if($object == -1 );
-
-    $c->stash->{object}->{name} = $object->name; # a hack to avoid storing Ace objects...
+    $c->stash->{object}->{name}{data} = $object; # a hack to avoid storing Ace objects...
 }
 
 

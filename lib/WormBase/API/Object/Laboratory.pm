@@ -4,7 +4,6 @@ use Moose;
 with 'WormBase::API::Role::Object';
 extends 'WormBase::API::Object';
 
-
 =pod 
 
 =head1 NAME
@@ -85,31 +84,35 @@ B<Response example>
 
 =cut
 
-sub all_labs {
-    my $self   = shift;
+{ # temporary fix. see Gene_class for comment on class methods
+    my $all_labs;
 
-    my $db   = $self->ace_dsn->dbh;
-    my @labs = $db->fetch(-query=>qq/find Laboratory/);
-    my @rows;
-    
-    foreach my $lab (sort { $a cmp $b } @labs) {
-	my $wb       = $lab->Representative;
-	my $allele   = join('; ',$lab->Allele_designation);	
-	my $url      = $lab->URL;
-	$url = lc($url);
-	$url = $url !~ /^http/i ? "http://$url" : $url;  # Fix urls. Why here?
-	my ($institute)  = $lab->Mail;
-	my $email        = $lab->E_mail;
-	push @rows,{ lab             => $self->_pack_obj($lab),
-		     representative  => $wb ? $self->_pack_obj($wb,$wb->Standard_name) : "$lab",
-		     email           => "$email",
-		     allele_designation => "$allele",
-		     url                => "$url",
-		     affiliation        => "$institute",
-	};
+    sub all_labs {
+        my $self   = shift;
+
+        return $all_labs ||= {
+            description => 'all labs registered with WormBase and the Caenorhabditis Genetics Center',
+            data        => [
+                map {
+                    my $url = $_->URL ; # raw_fetch candidate
+                    if (defined $url) {
+                        (my $tmp = lc $url) =~ s{^(?!http://)}{http://};
+                        $url = $tmp;
+                    }
+
+                    {
+                        lab                => $self->_pack_obj($_),
+                        representative     => $self->_pack_obj(scalar $_->Representative)
+			    // $_->name,
+			    email              => map { "$_" } scalar eval { $_->E_mail->name },
+			    allele_designation => $_->Allele_designation ? map { "$_" } $_->Allele_designation : '',
+			    url                => "$url",
+			    affiliation        => map { "$_" } scalar eval { ($_->Mail)[0] },
+                    };
+                } $self->ace_dsn->dbh->fetch(-query => "find Laboratory")
+            ],
+        };
     }
-    return { description => 'all labs registered with WormBase and the Caenorhabditis Genetics Center',
-	     data        => @rows ? \@rows : undef };   
 }
 
 
@@ -260,7 +263,8 @@ sub representatives {
     my @data;
     my @reps = $object->Representative;
     foreach (@reps) {
-	push @data,$self->_pack_obj($_,$_->Standard_name);
+	my $name = $_->Standard_name;
+	push @data,$self->_pack_obj($_, "$name");
     }
     
     return { description => 'official representatives of the laboratory',
@@ -499,7 +503,6 @@ B<Response example>
 sub website {
     my ($self) = @_;
     my ($scheme, $url) = split '://', $self ~~ 'URL', 2;
-
     return { description => 'website of the lab',
 	     data        => $url };
 }
@@ -561,7 +564,7 @@ sub strain_designation {
     my $name = $object->name;
              
     return { description => 'strain designation of the laboratory',
-	     data        => "$name" };
+	     data        => "$name" || undef };
 }
 
 
@@ -621,7 +624,7 @@ sub allele_designation {
     my $object = $self->object;
     my $allele_designation = $object->Allele_designation->name if $object->Allele_designation;
     return { description => 'allele designation of the laboratory',
-	     data        => "$allele_designation" };
+	     data        => $allele_designation && "$allele_designation" };
 }
 
 
@@ -693,7 +696,7 @@ sub current_members {
     my $data   = $self->_get_members($object,'Registered_lab_members');
 
     return { description => 'current members of the laboratory',
-	     data        => $data };
+	     data        => @$data ? $data : undef };
 }
  
 
@@ -753,7 +756,7 @@ sub former_members {
     my $object = $self->object;
     my $data   = $self->_get_members($object,'Past_lab_members');
     return { description => 'former members of the laboratory',
-	     data        => $data };
+	     data        => @$data ? $data : undef };
 }
 
 sub _get_members {
@@ -795,11 +798,11 @@ sub _get_lineage_data {
     }
     my $name = $member->Standard_name;
     
-    return { 'name'       => $self->_pack_obj($member,$name),
-	     'level'      => "$level",
-	     'start_date' => "$start",
-	     'end_date'   => "$end",
-	     'duration'   => "$duration" };
+    return { 'name'       => $self->_pack_obj($member,$name && "$name"),
+	     'level'      => $level && "$level",
+	     'start_date' => $start && "$start",
+	     'end_date'   => $end && "$end",
+	     'duration'   => $duration && "$duration" };
 }
 
 
@@ -873,11 +876,10 @@ sub gene_classes {
     foreach (@gene_classes) {
 	my $description = $_->Description;
 	push @data,{ gene_class => $self->_pack_obj($_),
-		     description => "$description" };
+		     description => $description && "$description" };
     }
-    my $data = { description => 'gene classes assigned to laboratory',
-		 data        => @data ? \@data : undef };
-    return $data;
+    return { description => 'gene classes assigned to laboratory',
+		 data    => @data ? \@data : undef };
 }
 
 #######################################
@@ -942,15 +944,16 @@ B<Response example>
 sub alleles {
     my $self   = shift;
     my $object = $self->object;
-
     my @alleles = $object->Alleles;
     my @data;
     foreach (@alleles) {
 	my $gene = $_->Gene;
 	my $type = $_->Type_of_mutation;
-	push @data,{ allele    => $self->_pack_obj($_,$_->Public_name),
-		     gene      => $gene ? $self->_pack_obj($gene,$gene->Public_name) : undef,
-		     type      => "$type",
+	my $allele_name = $_->Public_name;
+	my $gene_name = $gene->Public_name;
+	push @data,{ allele    => $self->_pack_obj($_, $allele_name && "$allele_name"),
+		     gene      => $self->_pack_obj($gene, $gene_name && "$gene_name"),
+		     type      => $type && "$type",
 		     sequenced => ($_->Flanking_sequences) ? 'yes' : 'no', 
 	};
     }
@@ -1030,7 +1033,7 @@ sub strains {
     foreach (@strains) {
 	my $genotype = $_->Genotype;
 	push @data,{ strain => $self->_pack_obj($_),
-		     genotype => "$genotype" };
+		     genotype => $genotype && "$genotype" };
     }
     return { description => 'strains generated by the laboratory',
 	     data        => @data ? \@data : undef,

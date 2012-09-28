@@ -3,7 +3,8 @@ package WormBase::Web;
 use Moose;
 use namespace::autoclean;
 use Hash::Merge;
-use Catalyst::Log::Log4perl;
+#use Catalyst::Log::Log4perl;
+use Log::Log4perl::Catalyst;
 use Log::Any::Adapter;
 use HTTP::Status qw(:constants :is status_message);
 
@@ -41,7 +42,7 @@ __PACKAGE__->config( 'Plugin::ConfigLoader' => {
 });
 
 __PACKAGE__->config('Plugin::Session', {
-    expires           => 3600,
+    expires           => 10000000000,
     dbi_dbh           => 'Schema',
     dbi_table         => 'sessions',
     dbi_id_field      => 'session_id',
@@ -142,7 +143,8 @@ sub _setup_log4perl {
     my $c = shift;
     my $path = $c->path_to('conf', 'log4perl',
                            $c->config->{installation_type} . '.conf');
-    $c->log(Catalyst::Log::Log4perl->new($path->stringify));
+    $c->log(Log::Log4perl::Catalyst->new($path->stringify));
+#    $c->log(Catalyst::Log::Log4perl->new($path->stringify));
     Log::Any::Adapter->set({ category => qr/^CHI/ }, 'Log4perl');
 }
 
@@ -199,6 +201,8 @@ sub _setup_cache {
         };
     }
 
+    # Gah. Not possible for the filecache to be versioned.
+    # I don't have access to the API until plugins are setup.
     if ($cacheconfig->{filecache}{enabled}) {
         my $cache_dir = $cacheconfig->{filecache}{root} // do {
             require File::Temp; File::Temp->newdir;
@@ -235,18 +239,19 @@ sub get_cache_backend { # overriding Plugin::Cache
 # Set configuration for static files
 # Force specific directories to be handled by Static::Simple.
 # These should ALWAYS be served in static mode.
+# In production, these directories are served by proxy.
 sub _setup_static {
     my $c = shift;
     $c->config(static => {
         dirs         => [qw/ css js img tmp /],
-        include_path => [
+	include_path => [
             '/usr/local/wormbase/tmp','/usr/local/wormbase/shared/tmp',
-            __PACKAGE__->config->{root},__PACKAGE__->config->{static_movie_base},
-	    __PACKAGE__->config->{static_image_base},
-        ],
-        #   logging  => 1,
-	 
-    });
+	    __PACKAGE__->config->{root},
+	    __PACKAGE__->config->{shared_html_base},
+	    ],
+	    #   logging  => 1,
+	    
+	       });
 }
 
 ##################################################
@@ -268,11 +273,19 @@ after prepare_path => sub {
 };
 
 sub finalize_error {
-	my $c = shift; 
-	$c->config->{'response_status'}=$c->response->status;
-	$c->config->{'Plugin::ErrorCatcher'}->{'emit_module'} = ["Catalyst::Plugin::ErrorCatcher::Email", "WormBase::Web::ErrorCatcherEmit"];
- 	shift @{$c->config->{'Plugin::ErrorCatcher'}->{'emit_module'}} unless(is_server_error($c->config->{'response_status'})); 
-	$c->maybe::next::method;
+    my $c = shift; 
+	
+    $c->config->{'response_status'}=$c->response->status;
+    
+    $c->config->{'Plugin::ErrorCatcher'}->{'emit_module'} = ["WormBase::Web::ErrorCatcherEmit","Catalyst::Plugin::ErrorCatcher::Email"];
+    
+    if ($c->config->{installation_type} eq 'production') {
+	# Only server errors get emailed.
+	pop @{$c->config->{'Plugin::ErrorCatcher'}->{'emit_module'}} unless is_server_error($c->config->{'response_status'}); 
+    } else {
+	pop @{$c->config->{'Plugin::ErrorCatcher'}->{'emit_module'}}; 
+    }
+    $c->maybe::next::method;
 }
 
 
@@ -369,6 +382,12 @@ sub secure_uri_for {
     }
     return $u;
 }
+
+# override 'uri_for' => sub {
+#     my ($self, @args) = @_;
+#     my $u = super(@args);
+#     return $u->path;
+#   };
 
 # overloaded from Per_User plugin to move saved items
 sub merge_session_to_user {

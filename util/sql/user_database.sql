@@ -22,6 +22,14 @@ CREATE TABLE email(
             PRIMARY KEY (user_id, email)
 );
 
+DROP TABLE IF EXISTS password_reset;
+CREATE TABLE password_reset(
+            user_id INTEGER,
+            token char(50),
+            expires   INTEGER,
+            PRIMARY KEY (user_id)
+);
+
 DROP TABLE IF EXISTS roles;
 CREATE TABLE roles (
             role_id   INTEGER PRIMARY KEY,
@@ -155,5 +163,28 @@ CREATE TABLE messages (
         message_type char(72),
         timestamp INTEGER
 );
+
+
+DROP TABLE IF EXISTS questions;
+CREATE TABLE questions (
+        question_id INTEGER AUTO_INCREMENT PRIMARY KEY,
+        question TEXT
+);
+
+DROP TABLE IF EXISTS answers;
+CREATE TABLE answers (
+        answer_id INTEGER AUTO_INCREMENT PRIMARY KEY,
+        question_id INTEGER,
+        answer TEXT
+);
+
+DROP TABLE IF EXISTS votes;
+CREATE TABLE votes (
+        session_id char(72),
+        question_id INTEGER,
+        answer_id INTEGER,
+        PRIMARY KEY (session_id, question_id)
+);
+
 
 INSERT INTO `users_to_roles` VALUES ('1', '1');

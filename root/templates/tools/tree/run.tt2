@@ -1,17 +1,63 @@
+[% target = "_blank" %]
+[% schema = data.object.class == 'Model';
+   curr_tool = schema ? 'schema' : 'tree';
+   curr_class = data.object.class; 
+IF schema;
+    title = 'Schema';
+    name = data.object.name.replace('\?', '');
+    curr_class = name;
+ELSE;
+    title = 'Tree Display';
+    name = data.object.name;
+END; %]
 [% UNLESS noboiler %]
-     <h1>WormBase Tree Display for [% data.object.class %]: [% data.object.name %]</h1>
+     <h1>WormBase [% title %] for [% data.object.class %]: [% name %]</h1>
+     [% target = "_self" %]
 [% END %]
 
+[% modelclass = data.object.class %]
+[% IF modelclass == 'Model' %]
+    [% modelclass = data.object.name %]
+[% ELSE %]
+    [% modelclass = "?$modelclass" %]
+[% END %]
+
+[% 
+  MACRO tree_link(url, text) BLOCK;
+    IF noboiler; %]
+      <a href="javascript:void(0)" onClick='WB.reloadWidget("[% curr_tool %]", undefined, "[% url %]&inline=1");'>[% text %]</a> 
+    [% ELSE;%]
+      <a href="[% url %]">[% text %]</a>
+    [% 
+    END;
+  END;
+
+%]
+
 [% UNLESS data.msg %]
-  <p>
-       <a href="[% c.uri_for('tools','tree','run') %]?name=[% data.object.name %]&class=[% data.object.class %]&view=expand">expand all nodes</a> |  
-       <a href="[% c.uri_for('tools','tree','run') %]?name=[% data.object.name %]&class=[% data.object.class %]&view=collapse">collapse all nodes</a> | 
-       <a href="[% c.uri_for('tools','tree','run') %]?name=?[% data.object.class %]&class=Model&view=collapse">view schema</a>
-  </p>
+      <p>
+      [% tree_link(c.uri_for('/tools',curr_tool,'run').path _ '?class=' _ curr_class _ (schema ? '' : '&name=' _ data.object.name) _ '&view=expand', 'expand all nodes') %] |
+      [% tree_link(c.uri_for('/tools',curr_tool,'run').path _ '?class=' _ curr_class _ (schema ? '' : '&name=' _ data.object.name) _  '&view=collapse', 'collapse all nodes') %]
+    [% IF !schema %]
+        | [% tree_link(c.uri_for('/tools','schema','run').path _ '?class=' _ curr_class, 'view schema') %]
+    [% ELSIF noboiler %]
+        | <a href="javascript:void(0)" onClick='WB.reloadWidget("tree")'>return to tree view</a>
+    [% END %]
+      </p>
 [% END %]
 
 <p>
-  <form method="POST" action="[% c.uri_for('tools','tree','run')%]" name"question"> 
+[% IF schema %]
+  <form method="POST" action="[% c.uri_for('/tools','schema','run').path %]" name"question"> 
+    <table>
+       <tr><th>Class</th> 
+           <td><input type="text" name="class" value="[% name %]" size="15" onchange="document.question.submit()" /></td>
+           <td><input type="submit" name="Change" value="Change" style="background: white" /></td>
+      </tr>
+    </table>
+  </form>
+[% ELSE %]
+  <form method="POST" action="[% c.uri_for('/tools','tree','run').path %]" name"question"> 
     <table>
        <tr><th>Name</th>
            <td><input type="text" name="name" value="[% data.object.name %]" onchange="document.question.submit()" /></td>
@@ -21,6 +67,7 @@
       </tr>
     </table>
   </form>
+[% END %]
 </p>
 
 [% IF data.msg %]

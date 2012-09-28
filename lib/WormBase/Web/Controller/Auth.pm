@@ -5,20 +5,104 @@ use warnings;
 use parent 'WormBase::Web::Controller';
 use Net::Twitter;
 use Facebook::Graph;
-use Data::Dumper;
 use Crypt::SaltedHash;
+use Data::GUID;
 
 __PACKAGE__->config->{namespace} = '';
  
  
-sub login :Path("/login") {
+sub login :Path("/login")  :Args(0){
      my ( $self, $c ) = @_;
     $c->stash->{noboiler} = 1;
     $c->stash->{'template'} = 'auth/login.tt2';
     $c->stash->{'continue'} = $c->req->params->{continue};
 }
 
-sub register :Path("/register") {
+sub password : Chained('/') PathPart('password')  CaptureArgs(0) {
+     my ( $self, $c) = @_;
+     $c->stash->{template} = 'auth/password.tt2';
+}
+
+sub password_index : Chained('password') PathPart('index')  Args(0){
+    my ( $self, $c ) = @_;
+    if($c->stash->{token}  = $c->req->param("id")) {
+	  my $user = $c->model('Schema::Password')->search({token=>$c->stash->{token} }, {rows=>1})->next;
+      if(!$user || $user->expires < time() ){
+          if($user){
+            $user->delete();
+            $user->update();
+          }
+
+          $c->stash->{template} = "shared/generic/message.tt2"; 
+          $c->stash->{message} = "the link has expired";
+      }
+    }
+}
+
+sub password_email : Chained('password') PathPart('email')  Args(0){
+    my ( $self, $c ) = @_;
+    my $email = $c->req->param("email");
+    $c->stash->{template} = "shared/generic/message.tt2"; 
+    
+	my @users = $c->model('Schema::Email')->search({email=>$email, validated=>1});
+	if(@users){
+	  my $guid = Data::GUID->new;
+	  $c->stash->{token} = $guid->as_string;
+	  my $time = time() + $c->config->{password_reset_expires};
+	  foreach (@users){
+	      next unless($_->user);
+	      my $password = $c->model('Schema::Password')->find($_->user_id);
+	      if($password){
+            if( time() < $password->expires ){
+                $c->stash->{token} = $password->token;
+            }else {
+              $password->token($c->stash->{token}) ;
+              $password->expires($time) ;
+              $password->update();
+            }
+	      }else{
+            $password = $c->model('Schema::Password')->create({token=>$c->stash->{token}, user_id=>$_->user_id,expires=>$time});
+	      }
+	  }
+	  $c->stash->{noboiler} = 1;
+	  $c->log->debug("send out password reset email to $email");
+	  $c->stash->{email} = {
+	      to       => $email,
+	      from     => $c->config->{register_email},
+	      subject  => "WormBase Password", 
+	      template => "auth/password_email.tt2",
+	  };
+	  $c->forward( $c->view('Email::Template') );
+	  $c->stash->{message} = "You should be receiving an email shortly describing how to reset your password.";
+	}
+	$c->stash->{message} ||= "no WormBase account is associated with this email"; 
+    $c->stash->{noboiler} = 0;
+}
+
+ 
+
+sub password_reset : Chained('password') PathPart('reset')  Args(0){
+    my ( $self, $c ) = @_;
+    my $token = $c->req->body_parameters->{token};
+    my $new_password = $c->req->body_parameters->{password};
+    $c->stash->{template} = "shared/generic/message.tt2"; 
+
+    my $pass = $c->model('Schema::Password')->search({token=>$token, expires => { '>', time() } }, {rows=>1})->next;
+    if($pass && (my $user = $pass->user)){
+	  my $csh = Crypt::SaltedHash->new() or die "Couldn't instantiate CSH: $!";
+	  $csh->add($new_password);
+	  my $hash_password= $csh->generate();
+	  $user->password($hash_password);
+	  $pass->delete;
+	  $user->update();
+      $pass->update();
+      $c->stash->{message} = "Your password has been reset. Please login'";
+    }
+    $c->stash->{message} ||= "The link to reset your password has expired. Please try again.";
+}
+ 
+
+sub register :Path("/register")  :Args(0){
   my ( $self, $c ) = @_;
   if($c->req->params->{inline}){
     $c->stash->{noboiler} = 1;
@@ -32,7 +116,7 @@ sub register :Path("/register") {
 #     $c->stash->{'continue'}=$c->req->params->{continue};
 }
 
-sub confirm :Path("/confirm") {
+sub confirm :Path("/confirm")  :Args(0){
     my ( $self, $c ) = @_;
     my $user=$c->model('Schema::User')->find($c->req->params->{u});
     my $wb = $c->req->params->{wb};
@@ -131,7 +215,7 @@ sub auth_login : Chained('auth') PathPart('login')  Args(0){
 
 #                 $self->reload($c);
 
-                $c->res->redirect($c->uri_for('/'));
+                $c->res->redirect($c->uri_for('/')->path);
 
 #                 $c->res->redirect($c->uri_for($c->req->path));
             } else {
@@ -144,7 +228,7 @@ sub auth_login : Chained('auth') PathPart('login')  Args(0){
      }
 }
 
-sub auth_wbid :Path('/auth/wbid') {
+sub auth_wbid :Path('/auth/wbid')  :Args(0) {
      my ( $self, $c) = @_;
     $c->stash->{redirect} = $c->req->params->{redirect};
     $c->stash->{'template'}='auth/wbid.tt2';
@@ -458,7 +542,7 @@ sub reload {
 }
 
  
-sub logout :Path("/logout") {
+sub logout :Path("/logout") :Args(0){
     my ($self, $c) = @_;
     # Clear the user's state
     $c->logout;
@@ -472,7 +556,7 @@ sub logout :Path("/logout") {
 
 
 # This is the PRIVATE profile.
-sub profile :Path("/profile") {
+sub profile :Path("/profile") :Args(0) {
     my ( $self, $c ) = @_;
     $c->stash->{noboiler} = 1;
 
@@ -501,7 +585,7 @@ sub profile :Path("/profile") {
 } 
  
 
-sub profile_update :Path("/profile_update") {
+sub profile_update :Path("/profile_update")  :Args(0) {
   my ( $self, $c ) = @_;
   my $email    = $c->req->params->{email_address};
   my $username = $c->req->params->{username};
@@ -527,12 +611,12 @@ sub profile_update :Path("/profile_update") {
 
   $c->stash->{message} = $message; 
   $c->stash->{template} = "shared/generic/message.tt2"; 
-  $c->stash->{redirect} = $c->uri_for("me");
+  $c->stash->{redirect} = $c->uri_for("me")->path;
   $c->forward('WormBase::Web::View::TT');
 } 
 
 
-sub add_operator :Path("/add_operator") {
+sub add_operator :Path("/add_operator")  :Args(0) {
     my ( $self, $c) = @_;
     $c->stash->{template} = "auth/operator.tt2";
     if($c->req->params->{content}){
@@ -543,7 +627,7 @@ sub add_operator :Path("/add_operator") {
       $c->model('Schema::UserRole')->find_or_create({user_id=>$c->user->user_id,role_id=>$role->role_id});
       $c->user->set_columns({"gtalk_key"=>$key});
       $c->user->update();
-      $c->res->redirect($c->uri_for("me"));
+      $c->res->redirect($c->uri_for("me")->path);
     }else {
 	 $c->stash->{error_msg} = "Adding Google Talk chatback badge not successful!";
     }

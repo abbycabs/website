@@ -324,26 +324,37 @@ sub regulates {
     my $object = $self->object;
     
     my @data;
-    my $type = $object->Result;
 
     my %conditions;
-    foreach my $condition_type ($type->col) {
-#	$conditions{$condition_type} = map { $self->_pack_obj($_) } $condition_type->right;
-	$conditions{$condition_type} = $self->_pack_objects( [ $condition_type->col ] );
-    }
 
-    foreach my $target_type ($object->Target) {
-	next if $target_type eq 'Target_info';  # captured elsewhere as reference_expression_pattern
-	my @targets = $target_type->col;
-	foreach (@targets) {
-	    push @data, { target          => $self->_pack_obj($_),
-			  target_type     => "$target_type",
-			  regulation_type => "$type",
-			  conditions      => \%conditions,
+    foreach my $type ($object->Result) {
+	foreach my $condition_type ($type->col) {
+	    if ("$condition_type" eq 'Subcellular_localization') {
+		my @values = map {"$_"} $condition_type->col;
+		$conditions{$condition_type} = @values ? \@values : undef;
+	    } else {
+		$conditions{$condition_type} = $self->_pack_objects( [ $condition_type->col ] );
+	    }
+	}
+
+	my $regtype;
+	if ("$type" eq 'Positive_regulate') { $regtype = 'Positively regulates' }
+	elsif ("$type" eq 'Negative_regulate') { $regtype = 'Negatively regulates' }
+	else { $regtype = 'Does not regulate' }
+
+	foreach my $target_type ($object->Target) {
+	    next if $target_type eq 'Target_info';  # captured elsewhere as reference_expression_pattern
+	    my @targets = $target_type->col;
+	    foreach (@targets) {
+		push @data, { target          => $self->_pack_obj($_),
+			      target_type     => "$target_type" || undef,
+			      regulation_type => "$regtype" || undef,
+			      conditions      => scalar keys %conditions ? \%conditions : undef,
+		}
 	    }
 	}
     }
-    
+
     return {
 	description => 'the type of regulation (positive, negative, none)',
 	data	    => @data ? \@data : undef,
@@ -402,7 +413,7 @@ B<Response example>
 sub type_of_change {
     my ($self) = @_;
     
-    my @types = map {$_->name} @{$self ~~ '@Type'};    
+    my @types = map {"$_"} @{$self ~~ '@Type'};    
     return { description => 'types of change effected by the regulation',
 	     data	 => @types ? \@types : undef,
     };
@@ -461,9 +472,7 @@ sub molecule_regulators {
     my $self   = shift;
     my $object = $self->object;
     
-    my @molecules = map { $self->pack_obj($_) } $object->Molecule_regulator;
-    
-#    my $molecule_regs = $self->_pack_objects( [ $self ~~ '@Molecule_regulator' ] );
+    my @molecules = map { $self->_pack_obj($_) } $object->Molecule_regulator;
     return {
 	description => 'Molecule regulator',
 	data	=> @molecules ? \@molecules : undef,

@@ -120,7 +120,7 @@ sub algorithm {
     my $object = $self->object;
     my $algorithm =  $object->Algorithm;
     return { description => 'Algorithm used to determine cluster',
-	     data        => "$algorithm" || undef,
+	     data        => $algorithm && "$algorithm",
     };
 }
 
@@ -188,8 +188,8 @@ B<Response example>
 sub genes {
     my $self   = shift;
     my $object = $self->object;
-    my $data   = $self->_pack_objects($object->Gene);
-    return { data        => %$data ? $data : undef,
+    my @data = map {$self->_pack_obj($_)} $object->Gene;
+    return { data        => @data ? \@data : undef,
 	     description => 'genes contained in this expression cluster' };
 
 }
@@ -261,8 +261,8 @@ sub anatomy_terms {
     foreach ($object->Anatomy_term) {
 	my $definition   = $_->Definition;
 	push @data, {
-	    anatomy_term => $self->_pack_object($_),
-	    definition => "$definition",
+	    anatomy_term => $self->_pack_obj($_),
+	    definition => $definition && "$definition",
 	};
     }
     return { data        => @data ? \@data : undef,
@@ -397,16 +397,15 @@ sub microarray {
 
     my @data;      
     foreach ($object->Microarray_results) {
-    	my $microarray_result = $self->_pack_obj($_);
     	my $experiment = $self->_pack_obj($_->Result) if $_->Result;
     	my $minimum = $_->Min;
     	my $maximum = $_->Max;
     	
 	push @data, {
-	    microarray => $microarray_result,
+	    microarray => $self->_pack_obj($_),
 	    experiment => $experiment,
-	    minimum => "$minimum",
-	    maximum => "$maximum",
+	    minimum => $minimum && "$minimum",
+	    maximum => $maximum && "$maximum",
 	};
     }
     return { data        => @data ? \@data : undef,
@@ -469,8 +468,8 @@ B<Response example>
 sub sage_tags {
     my $self   = shift;
     my $object = $self->object;
-    my $data   = $self->_pack_objects($object->SAGE_tag);
-    return { data        => %$data ? $data : undef,
+    my @data   = map {$self->_pack_obj($_)} $object->SAGE_tag;
+    return { data        => @data ? \@data : undef,
 	     description => 'Sage tags associated with this expression_cluster'
     };
 }

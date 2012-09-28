@@ -1,14 +1,4 @@
-/* 
-
-  WormBase - primary stylesheet
-
-  Contents:
-
-  DOCUMENT - document level formatting
-
-*/  
-
-/*! normalize.css 2011-08-31T22:02 UTC · http://github.com/necolas/normalize.css */
+/*! normalize.css 2012-03-06T10:21 UTC - http://github.com/necolas/normalize.css */
 
 /* =============================================================================
    HTML5 display definitions
@@ -27,7 +17,8 @@ footer,
 header,
 hgroup,
 nav,
-section {
+section,
+summary {
     display: block;
 }
 
@@ -45,10 +36,12 @@ video {
 
 /*
  * Prevents modern browsers from displaying 'audio' without controls
+ * Remove excess height in iOS5 devices
  */
 
 audio:not([controls]) {
     display: none;
+    height: 0;
 }
 
 /*
@@ -68,16 +61,26 @@ audio:not([controls]) {
 /*
  * 1. Corrects text resizing oddly in IE6/7 when body font-size is set using em units
  *    http://clagnut.com/blog/348/#c790
- * 2. Keeps page centred in all browsers regardless of content height
- * 3. Prevents iOS text size adjust after orientation change, without disabling user zoom
+ * 2. Prevents iOS text size adjust after orientation change, without disabling user zoom
  *    www.456bereastreet.com/archive/201012/controlling_text_size_in_safari_for_ios_without_disabling_user_zoom/
  */
 
 html {
     font-size: 100%; /* 1 */
-    overflow-y: scroll; /* 2 */
-    -webkit-text-size-adjust: 100%; /* 3 */
-    -ms-text-size-adjust: 100%; /* 3 */
+    -webkit-text-size-adjust: 100%; /* 2 */
+    -ms-text-size-adjust: 100%; /* 2 */
+}
+
+/*
+ * Addresses font-family inconsistency between 'textarea' and other form elements.
+ */
+
+html,
+button,
+input,
+select,
+textarea {
+    font-family: sans-serif;
 }
 
 /*
@@ -86,18 +89,6 @@ html {
 
 body {
     margin: 0;
-}
-
-/* 
- * Addresses font-family inconsistency between 'textarea' and other form elements.
- */
-
-body,
-button,
-input,
-select,
-textarea {
-    font-family: sans-serif;
 }
 
 
@@ -129,6 +120,41 @@ a:active {
    ========================================================================== */
 
 /*
+ * Addresses font sizes and margins set differently in IE6/7
+ * Addresses font sizes within 'section' and 'article' in FF4+, Chrome, S5
+ */
+
+h1 {
+    font-size: 2em;
+    margin: 0.67em 0;
+}
+
+h2 {
+    font-size: 1.5em;
+    margin: 0.83em 0;
+}
+
+h3 {
+    font-size: 1.17em;
+    margin: 1em 0;
+}
+
+h4 {
+    font-size: 1em;
+    margin: 1.33em 0;
+}
+
+h5 {
+    font-size: 0.83em;
+    margin: 1.67em 0;
+}
+
+h6 {
+    font-size: 0.75em;
+    margin: 2.33em 0;
+}
+
+/*
  * Addresses styling not present in IE7/8/9, S5, Chrome
  */
 
@@ -137,12 +163,12 @@ abbr[title] {
 }
 
 /*
- * Addresses style set to 'bolder' in FF3/4, S4/5, Chrome
+ * Addresses style set to 'bolder' in FF3+, S4/5, Chrome
 */
 
-b, 
-strong { 
-    font-weight: bold; 
+b,
+strong {
+    font-weight: bold;
 }
 
 blockquote {
@@ -164,6 +190,15 @@ dfn {
 mark {
     background: #ff0;
     color: #000;
+}
+
+/*
+ * Addresses margins set differently in IE6/7
+ */
+
+p,
+pre {
+    margin: 1em 0;
 }
 
 /*
@@ -239,15 +274,34 @@ sub {
    Lists
    ========================================================================== */
 
-ul,
-ol {
+/*
+ * Addresses margins set differently in IE6/7
+ */
+
+dl,
+menu,
+ol,
+ul {
     margin: 1em 0;
-    padding: 0 0 0 40px;
 }
 
 dd {
     margin: 0 0 0 40px;
 }
+
+/*
+ * Addresses paddings set differently in IE6/7
+ */
+
+menu,
+ol,
+ul {
+    padding: 0 0 0 40px;
+}
+
+/*
+ * Corrects list images handled incorrectly in IE7
+ */
 
 nav ul,
 nav ol {
@@ -261,7 +315,7 @@ nav ol {
    ========================================================================== */
 
 /*
- * 1. Removes border when inside 'a' element in IE6/7/8/9, F3
+ * 1. Removes border when inside 'a' element in IE6/7/8/9, FF3
  * 2. Improves image quality when scaled in IE7
  *    code.flickr.com/blog/2008/11/12/on-ui-quality-the-little-things-client-side-image-resizing/
  */
@@ -272,7 +326,7 @@ img {
 }
 
 /*
- * Corrects overflow displayed oddly in IE9 
+ * Corrects overflow displayed oddly in IE9
  */
 
 svg:not(:root) {
@@ -306,27 +360,31 @@ form {
 }
 
 /*
- * Define consistent margin and padding
+ * Define consistent border, margin, and padding
  */
 
 fieldset {
+    border: 1px solid #c0c0c0;
     margin: 0 2px;
     padding: 0.35em 0.625em 0.75em;
 }
 
 /*
  * 1. Corrects color not being inherited in IE6/7/8/9
- * 2. Corrects alignment displayed oddly in IE6/7
+ * 2. Corrects text not wrapping in FF3
+ * 3. Corrects alignment displayed oddly in IE6/7
  */
 
 legend {
     border: 0; /* 1 */
-    *margin-left: -7px; /* 2 */
+    padding: 0;
+    white-space: normal; /* 2 */
+    *margin-left: -7px; /* 3 */
 }
 
 /*
  * 1. Corrects font size not being inherited in all browsers
- * 2. Addresses margins set differently in IE6/7, F3/4, S5, Chrome
+ * 2. Addresses margins set differently in IE6/7, FF3+, S5, Chrome
  * 3. Improves appearance and consistency in all browsers
  */
 
@@ -341,53 +399,57 @@ textarea {
 }
 
 /*
- * 1. Addresses FF3/4 setting line-height using !important in the UA stylesheet
- * 2. Corrects inner spacing displayed oddly in IE6/7
+ * Addresses FF3/4 setting line-height on 'input' using !important in the UA stylesheet
  */
 
 button,
 input {
     line-height: normal; /* 1 */
-    *overflow: visible;  /* 2 */
-}
-
-/*
- * Corrects overlap and whitespace issue for buttons and inputs in IE6/7
- * Known issue: reintroduces inner spacing
- */
-
-table button,
-table input {
-    *overflow: auto;
 }
 
 /*
  * 1. Improves usability and consistency of cursor style between image-type 'input' and others
  * 2. Corrects inability to style clickable 'input' types in iOS
+ * 3. Removes inner spacing in IE7 without affecting normal text inputs
+ *    Known issue: inner spacing remains in IE6
  */
 
 button,
-html input[type="button"], 
-input[type="reset"], 
+input[type="button"],
+input[type="reset"],
 input[type="submit"] {
     cursor: pointer; /* 1 */
     -webkit-appearance: button; /* 2 */
+    *overflow: visible;  /* 3 */
+}
+
+/*
+ * Re-set default cursor for disabled elements
+ */
+
+button[disabled],
+input[disabled] {
+    cursor: default;
 }
 
 /*
  * 1. Addresses box sizing set to content-box in IE8/9
- * 2. Addresses excess padding in IE8/9
+ * 2. Removes excess padding in IE8/9
+ * 3. Removes excess padding in IE7
+      Known issue: excess padding remains in IE6
  */
 
 input[type="checkbox"],
 input[type="radio"] {
     box-sizing: border-box; /* 1 */
     padding: 0; /* 2 */
+    *height: 13px; /* 3 */
+    *width: 13px; /* 3 */
 }
 
 /*
  * 1. Addresses appearance set to searchfield in S5, Chrome
- * 2. Addresses box sizing set to border-box in S5, Chrome (include -moz to future-proof)
+ * 2. Addresses box-sizing set to border-box in S5, Chrome (include -moz to future-proof)
  */
 
 input[type="search"] {
@@ -398,15 +460,16 @@ input[type="search"] {
 }
 
 /*
- * Corrects inner padding displayed oddly in S5, Chrome on OSX
+ * Removes inner padding and search cancel button in S5, Chrome on OS X
  */
 
-input[type="search"]::-webkit-search-decoration {
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button {
     -webkit-appearance: none;
 }
 
 /*
- * Corrects inner padding and border displayed oddly in FF3/4
+ * Removes inner padding and border in FF3+
  * www.sitepen.com/blog/2008/05/14/the-devils-in-the-details-fixing-dojos-toolbar-buttons/
  */
 
@@ -431,7 +494,7 @@ textarea {
    Tables
    ========================================================================== */
 
-/* 
+/*
  * Remove most spacing between table cells
  */
 
@@ -458,10 +521,10 @@ div#splash-box{
   position:relative;
   background-image:url('/img/home.jpg');
   background-repeat:no-repeat;
-  padding:1.5em;
+  padding:35px;
   padding-left:2.5em;
   font-size:1.5em;
-  height:7em;
+  height:170px;
   z-index:6;
 }
 
@@ -474,10 +537,10 @@ div#tutorial-left{
   background-repeat:no-repeat;
   background-position: -235px 0;
   width:695px;
-  height:10em;
+  height:225px;
   position:absolute;
-  left:1em;
-  top:0.5em;
+  left:20px;
+  top:10px;
   z-index:-1;
 }
 
@@ -485,11 +548,11 @@ div#tutorial-right{
   background-image:url('/img/tutorial.png');
   background-repeat:no-repeat;
   position:absolute;
-  right:1.5em;
-  top:0.5em;
+  right:30px;
+  top:10px;
   background-repeat:no-repeat;
   width:229px;
-  height:9em;
+  height:216px;
   z-index:-1;
 }
 
@@ -501,7 +564,7 @@ div.star-tutorial{
   height:110px;
   width:170px;
   position:absolute;
-  right:59px;
+  right:52px;
   bottom:16px;
   cursor:pointer;
 }
@@ -567,7 +630,6 @@ div#create-prompt {
 /* Seach bar and results page */
 #results {
   max-width:49em;
-  font-size:0.9em;
   margin: 0;
   padding:0;
 }
@@ -576,6 +638,7 @@ div#create-prompt {
   margin:0 -0.5em;
   padding:0.3em 0 0 0;
   list-style-type: none;
+  font-size:0.9em;
 }
 
 #results ul li{
@@ -644,10 +707,78 @@ div#create-prompt {
   text-overflow: ellipsis;
 }
 
-.text-min:hover div.more, div.more:hover{
+.text-min:hover div.more, div.more:hover, .result:hover div.ev-more-text span, .result:hover .v, div.columns div.ui-icon-close:hover {
   opacity:1;
   filter:alpha(opacity=100);
   -moz-opacity:1;
+  color:black;
+}
+
+.result:hover .ev-more-text span{
+  background-color: #E9EEF2;
+}
+
+.evidence {
+  cursor:pointer;
+  margin:0 -0.5em;
+}
+
+.ev-more-text {
+  text-align:center;
+  font-size:0.8em;
+  width:4em;
+  margin:0 auto;
+}
+
+.ev-more-text span {
+  z-index:2;
+  position:absolute;
+  background-color:white;
+  padding:0 2px;
+  color:#999;
+  text-align:center;
+  width:4em;
+}
+
+tr.odd .ev-more-text span {
+  background-color:#E2E4FF;
+}
+
+.ev-more {
+  width:100%;
+  position:relative;
+  height:1em;
+}
+
+.ev {
+  font-size:0.9em;
+}
+
+.ev-more .v {
+  position:absolute;
+  opacity:0.3;
+  filter:alpha(opacity=30);
+  -moz-opacity:0.3;
+  z-index:1;
+}
+
+.ev-more .ui-icon {
+  position:relative;
+  margin:0 auto 0;
+  top:0.7em;
+  z-index:3;
+}
+
+.ev-more.open .ui-icon {
+  top:-6px;
+}
+
+.ev-more-line {
+  width:80%;
+  border-top:1px solid black;
+  position:absolute;
+  left:10%;
+  top:0.7em;
 }
 
 div.more {
@@ -667,9 +798,9 @@ div.more.open {
 }
 
 div.more .ui-icon {
-  position:absolute;
+  position:relative;
+  margin: 0 auto;
   top:-6px;
-  left:50%;
 }
 
 #fade {
@@ -677,14 +808,23 @@ div.more .ui-icon {
    font-size: 0.8em;
 }
 
+a#fade:hover {
+  text-decoration:underline;
+}
+
 .result {
   padding:0 0.5em 0.5em;
+  position:relative;
 }
 
 .result:hover {
   background-color: #E9EEF2;
 }
 
+.search-bg #searchResultForm #SearchResult {
+  width:90%;
+  float:left;
+}
 
 /* The search bar form */
 #searchResultForm {
@@ -696,7 +836,7 @@ div.more .ui-icon {
 
 #searchBody {
   border-right:1px dotted gray;
-  float:right;
+  float:left;
   margin: 0.4em;
   position:relative;
   background:white;
@@ -720,7 +860,7 @@ div.more .ui-icon {
 }
 
 #searchForm input.text, #searchResultForm input.text{  
-  float:left;
+  float:right;
   width:8em;
   color: #565656;  
   border:none;
@@ -731,13 +871,9 @@ div.more .ui-icon {
   margin:0;
 }  
 
-#searchResultForm input.text{
-  width:97%;
-  margin: 0;
-}
 
 #searchForm input.ui-icon, #searchResultForm input.ui-icon{
-  float:right;
+  float:left;
   margin:0.3em 0.5em 0 0;
   padding:0;
   background-color:transparent;
@@ -759,8 +895,13 @@ div.more .ui-icon {
   cursor:pointer;
 }
 
+#searchResultForm #searchSelect {
+  font-size:0.8em;
+  float:right;
+}
+
 #searchSelect {
-  float:left;
+  float:right;
   padding:0;
   margin:0.2em 0.5em;
   list-style:none;
@@ -769,7 +910,15 @@ div.more .ui-icon {
   color:black;
   font-size:0.9em;
   position:relative;
-  max-width:10em;
+  max-width:15em;
+  font-weight:normal;
+}
+
+#search-more{
+  font-weight:normal;
+  font-size:0.6em;
+  float:left;
+  margin-top:2em;
 }
 
 #searchSelect li:hover{
@@ -778,6 +927,10 @@ div.more .ui-icon {
 
 #searchSelect:hover {
   background:#C2D1DF;
+}
+
+#searchResultForm #searchSelect ul{
+  font-size:0.7em;
 }
 
 #searchSelect ul{
@@ -919,7 +1072,7 @@ div.more .ui-icon {
 background-image: url(../img/new-icons.png) !important; 
 cursor:pointer;}
 .ui-icon-star-gray  {  background-position: -120px 0px; }
-.ui-icon-star-gray:hover  {   background-position: -160px 0px; }
+.result:hover .ui-icon-star-gray, .ui-icon-star-gray:hover  {   background-position: -160px 0px; }
 .ui-icon-star-yellow  {   background-position: -140px 0px; }
 
 
@@ -989,7 +1142,7 @@ a:link {
 
 a:visited {
     text-decoration: none; 
-    color: #0000B8;
+    color: #410082;
     border:none;
 }
 
@@ -1004,7 +1157,7 @@ a:hover {
 
 p  {
     font-size:1em;
-    line-height:1.1em;
+    line-height:1.3em;
     margin:1em 0;
 }
 
@@ -1022,14 +1175,14 @@ div#header {
   border:none;
 }
 
-div#header h1 a, div#header h1 {
+div#header h1 a, div#header h1, div#header p a  {
   padding: 0.2em 0.2em 0.2em 0;
   margin:0;
   color:white;
   display:inline;
 }
 
-div#header h1:hover a{
+div#header h1:hover a, div#header p a:hover{
   color:#CCC;
 }
 
@@ -1096,10 +1249,10 @@ div#header .release_date { }
 }
 
 .system-message {
-  height:0px;
   width:100%;
   padding: 0.3em 0em 0.2em;
-  display:none;
+  height:20px;
+  display:block;
 }
 
 /* user warnings */
@@ -1132,6 +1285,10 @@ div#error-box {
     width:600px;
     padding:2em;
     font-size:1.0em;
+}
+
+div.ui-state-error {
+  padding:0 1em;
 }
 
 
@@ -1191,7 +1348,7 @@ ul.nav-bar span.status-bar {
   padding:0;
 }
 
-ul.nav-bar span.status-bar li a {
+ul.nav-bar span.status-bar li>a {
   padding-right:1.5em;
 }
 
@@ -1226,7 +1383,7 @@ ul.nav-bar li a.hover span, ul.nav-bar li a.selected span{
   visibility:visible;
 }
 
-ul.nav-bar ul.dropdown {
+ul.nav-bar ul.wb-dropdown {
   float:none;
   margin:0;
   display:none;
@@ -1242,8 +1399,7 @@ ul.nav-bar ul.dropdown {
 }
 
 /* Login and registration styling  - header, home page, and login popup */
-#login-box ul.dropdown {
-  width:auto;
+#login-box ul.wb-dropdown {
   left:auto;
   right:0;
   top:1.6em;
@@ -1252,7 +1408,7 @@ ul.nav-bar ul.dropdown {
 
 .login-holder{
   position:relative;
-  margin:0.5em 1em;
+  margin:0.5em 0 0.5em 1em;
 }
 
 span.holder {
@@ -1268,7 +1424,7 @@ span.holder {
   color:black;
   position:relative;
   border-bottom:none;
-  padding-right:1.5em;
+  border-right:none;
 }
 
 #login-form button{
@@ -1282,36 +1438,54 @@ span.holder {
   border-top:1px solid #CDCDCD;
   overflow:hidden;
   position:relative;
-  padding:0.5em 0 1em 1em;
+  padding:0.5em 1em 1em 1em;
 }
 
-#login-form > form {
-  width:14.5em;
+#login-form div.social>div {
+  float:left;
+  padding:0.5em;
+}
+
+#login-form input.email {
+  width:15em;
+}
+
+#login-form input.password {
+  width:10em;
+}
+
+#login-form input#login {
+  width:4.5em;
 }
 
 .login-form {
   padding:0.5em 0 0 !important;
   font-weight: normal !important;
   background: white !important;
-  width: 14em !important;
+  width: 17em !important;
 }
 
 .registration-form {
   padding: 1em !important;
   background: #E9EEF2 !important;
-  width: 21.5em !important;
+  width: 22em !important;
+}
+
+.registration-form .login-holder input{
+  width:12em;
+  margin-right:1em;
 }
 /* END of login and registration styling */
 
 
-ul.nav-bar ul.dropdown li {
+ul.nav-bar ul.wb-dropdown li {
   padding:0.5em 0;
   width:100%;
   font-size:0.9em;
   list-style: none;
 }
 
-ul.nav-bar ul.dropdown ul.dropdown {
+ul.nav-bar ul.wb-dropdown ul.wb-dropdown {
   position:absolute;
   top:0em;
   left:100%;
@@ -1321,13 +1495,13 @@ ul.nav-bar ul.dropdown ul.dropdown {
 }
 
 
-ul.nav-bar ul.dropdown li a span.ui-icon{
+ul.nav-bar ul.wb-dropdown li a span.ui-icon{
   position:absolute;
   right:0;
   top:0;
 }
 
-ul.nav-bar ul.dropdown li a {
+ul.nav-bar ul.wb-dropdown li a {
   float:none;
   border:none;
   color:black;
@@ -1335,11 +1509,11 @@ ul.nav-bar ul.dropdown li a {
   padding:0.5em;
 }
 
-ul.dropdown li:hover{
+ul.wb-dropdown li:hover{
   background:#FFFFDF;
 }
 
-ul.dropdown li.selected {
+ul.wb-dropdown li.selected {
   background:#CDCDCD;
 }
 
@@ -1581,8 +1755,7 @@ div#footercredit a{
 
 .returned {
    display:none;
-   padding:5px;
-   padding-left:30px;
+   padding:0 0 0.5em 1em;
 }
 
 .superscript      { vertical-align:super; 
@@ -1599,7 +1772,7 @@ div.columns {
 }
 
 div.columns ul {
-  width:4.5em;
+  width:6em;
   position:absolute;
   z-index:999;
   top:100%;
@@ -1609,11 +1782,6 @@ div.columns ul {
   padding:0;
   border:1px solid #CDCDCD;
   display:none;
-}
-
-div.columns ul ul{
-  left:100%;
-  top:0;
 }
 
 div.columns ul li{
@@ -1629,20 +1797,32 @@ div.columns ul li:hover{
   background: #FFFFDF;
 }
 
-div.columns ul li div{
-  float:none;
-}
-
-div.columns div{
-  float:left;
+div.columns div.ui-icon-close{
+  float:right;
+  opacity:0.5;
+  filter:alpha(opacity=50);
+  -moz-opacity:0.5;
 }
 
 div.columns ul div input#layout-input {
   width:100%;
   color: #999999;
-  font-size: 0.75em;
   margin:0;
   padding:0;
+}
+
+div.columns ul li.multCol div#msg {
+  display:none;
+}
+
+div#column-dropdown ul li.multCol.ui-state-disabled div#msg {
+  display:block;
+  float:right;
+  font-size:0.8em;
+}
+
+div#column-dropdown ul li.ui-state-disabled:hover {
+  background:white;
 }
 
 /* END Formatting for column selection dropdown */
@@ -1672,6 +1852,15 @@ div.columns ul div input#layout-input {
 
 #page-title h2 .bench-update{
   padding-top:5px;
+}
+
+#page-title h2 .note {
+  font-size:0.5em;
+  font-weight:normal;
+  position:absolute;
+  bottom:1.6em;
+  left:6em;
+  color:#333;
 }
 
 
@@ -1760,6 +1949,7 @@ li.visible div.widget-container {
   width:100%;
   text-align:center;
   padding:1em 0 0;
+  height:150px;
 }
 
 /* colour changes for the different types of widgets */
@@ -1811,6 +2001,7 @@ div.field-title {
 
 div.field-content {
   float: left;
+  max-width:100%;
 }
 
 /* Curator specific fields */
@@ -1820,6 +2011,12 @@ div.field-curator {
   background:#CCFFFF;
   border:1px solid gray;
   width:80%;
+}
+
+div.field-curator span.desc {
+  position:absolute;
+  right:0.4em;
+  bottom:0.2em;
 }
 
 
@@ -1895,21 +2092,14 @@ div#google-map {
 
 
 /* SEQUENCE STYLING */
-
-/* a snippet of sequence displayed inline */
-.inline-sequence {
-   font-family: Courier, monospace;
-   font-size:0.8em;
-}
-
-/* an expandable sequence container */
+/* sequence display formatting */
 .sequence-container {
     font-family: Courier, monospace;
     font-size: 0.8em;
     overflow: hidden;
     clear: both;
     margin: 5px;
-    display: none;   /* Hidden by default */
+    width:55em;
 }
 
 
@@ -1931,28 +2121,14 @@ div#google-map {
 }
 
 .toggle {
-	padding: 0.5em 0 0 2em;
-	background: url(/img/ui_widgets/blue_plus_small.png) no-repeat ;
-	font-size: 1em;
-	font-weight: normal;
+	padding: 0.25em 0 0;
+    cursor:pointer;
+    margin: 0 0 0 -0.4em;
 }
 
 #overview-content .toggle{
   clear:left;
 }
-
-.toggle-container {
-    font-family: Courier, monospace;
-    font-size: 0.8em;
-    overflow: hidden;
-    clear: both;
-    display: none;   /* Hidden by default */
-}
-
-
-
-div.active {background: url(/img/ui_widgets/blue_minus_small.png) no-repeat;}
-
 
 /* Ajax loading animations */
 #loadingDiv { background: url(/img/animations/small_loader.gif) no-repeat center; }
@@ -1960,7 +2136,23 @@ div.active {background: url(/img/ui_widgets/blue_minus_small.png) no-repeat;}
 .tooltip {
 	margin-left: 7px;
 	padding:0 0 0 20px;
-	background:url(/img/ui_widgets/evidence-icon.jpeg) no-repeat;
+    cursor:pointer;
+}
+
+#cytoscapeweb { width: 100%; height: 100%; }
+
+.expr_patterns {
+  list-style-type: none;
+  padding:0;
+}
+
+.expr_patterns li a {
+  float:left;
+}
+
+.expr_patterns li {
+  margin-top:0.5em;
+  overflow:hidden;
 }
 
 
@@ -2116,6 +2308,10 @@ div.active {background: url(/img/ui_widgets/blue_minus_small.png) no-repeat;}
   visibility:visible;
 }
 
+.navigation .toggle {
+  margin:0;
+}
+
 
 #nav-min{
   height:100%;
@@ -2154,33 +2350,31 @@ div.active {background: url(/img/ui_widgets/blue_minus_small.png) no-repeat;}
   border-left:1px solid #CCC;
   padding:1em 1.5em 0.5em 0.7em;
   table-layout:fixed;
-
+  display:table;
 }
 
-#outer-widget-holder{
-  overflow:hidden;
-  position:relative;
-  height:100%;
+#widget-holder.one-column {
+  display:block;
 }
 
-#widget-holder.title-padding{
+#widget-holder.title-padding {
   padding-top: 1.9em;
 }
 
-.sortable{
+.sortable {
   width:100%;
   min-width:15em;
   margin:0;
 }
 
-.one-column {
+.one-column .sortable {
   display:inline;
   float:left;
   position:relative;
   width:100%;
 }
 
-.table-columns {
+.table-columns .sortable{
   display:table-cell;
   table-layout:fixed;
   float:none;
@@ -2235,7 +2429,26 @@ div.detail-box{
   padding: 0.5em;
   float:right;
   margin:0.5em;
-  max-width:300px;
+  max-width:25em;
+/*   min-width:19em; */
+  word-wrap: break-word;
+}
+
+div.description {
+  clear:left;
+  padding:0.5em 0;
+  max-width:35em;
+}
+
+div.description div.result{
+  display:inline;
+}
+
+#overview .content h2:first-child{
+  float:left;
+}
+#overview .content h2:first-child span{
+  font-size:0.8em;
 }
 
 div.search-summary {
@@ -2249,7 +2462,7 @@ div#all-search-results {
 }
 
 div.detail-box div.field div.field-title {
-  width: 7em;
+  width: 8em;
   padding-right: 0.5em;
 }
 
@@ -2269,67 +2482,66 @@ div.detail-box div.field div.field-content{
   display:none;
 }
 
-.tip-simple {
+[tip]{
   position:relative;
 }
 
-.tip {
-  position:absolute;
-  bottom:100%;
-  left:0;
-  background:black;
-  color:white;
-  font-size:9pt;
-  line-height:11pt;
-  padding:0.5em;
-  margin:0.5em 0;
+[tip]:before {
+    content: "";
+    position: absolute;
+    border-top: 5px solid #000;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    visibility: hidden;
+    top: -7px;
+    right: 8px;
 }
 
-.tip span.ui-icon-triangle-1-s{
-  position:absolute;
-  top:100%;
-  left:0.3em;
-  height:6px;
-  background-position:-64px -23px;
+.star[tip]:before {
+  top:15px;
+  right:30px;
+  border:none;
+  border-left: 5px solid #000;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
 }
 
-.star>.tip{
-  left:auto;
-  top:0;
-  right:3em;
-  bottom:auto;
+.tl[tip]:before {
+  left:8px;
+  right:auto;
 }
 
-.star>.tip span.ui-icon-triangle-1-s{
-  position:absolute;
-  top:0.5em;
-  height:16px;
-  width:5px;
-  background-position: -40px -16px;
-  left:100%;
+[tip]:after {
+    content: attr(tip);
+    position: absolute;
+    color: white;
+    font-size:9pt;
+    line-height:11pt;
+    padding:6px;
+    top: -33px;
+    right:0px;
+    background: #000;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    white-space: nowrap;
+    visibility: hidden;
 }
 
-.tr>.tip{
-  left:auto;
-  right:0;
-}
-.tr>.tip span.ui-icon-triangle-1-s{
-  left:auto;
-  right:0.3em;
+.tl[tip]:after {
+    left:0;
+    right:auto;
 }
 
-.br>.tip{
-  left:auto;
-  top:auto;
-  right:0;
-  bottom:100%;
+.star[tip]:after {
+  top:5px;
+  right:35px;
 }
-.br>.tip span.ui-icon-triangle-1-s{
-  left:auto;
-  top:auto;
-  right:0.4em;
-  bottom:100%;
+
+[tip]:hover:before, [tip]:hover:after {
+    visibility: visible;
 }
+
 
 /*Strain table*/
 table tr.venn-a, table th.venn-a, table td.venn-a {
@@ -2477,6 +2689,10 @@ table.venn tr.venn-data td {
   width:1em;
 }
 
+#issue-box span{
+  float:left;
+}
+
 #operator-box.minimize{
   background:#406F9C;
   background-image:url('/img/chat.png');
@@ -2503,7 +2719,13 @@ table.venn tr.venn-data td {
   display:none;
 }
 
- 
+#resizable { 
+  width: 750px;
+  height: 750px;
+  padding: 0.5em;
+  margin:0 auto;
+}
+
 
 
 /* = Generic styling added by TH; possibly redundant  ========================== */
@@ -2532,6 +2754,8 @@ div.inline-columns img {
 .button span {
   float:left;
 }
+
+
 
 .button{
   float:left;
@@ -2580,6 +2804,20 @@ div.title {
   float:left;
 }
 
+.button span:not(.ui-icon){
+  margin:0 0.5em 0 0;
+  font-size:0.9em;
+}
+
+.seq-toggle .toggle {
+  padding:0.25em;
+}
+
+.seq-toggle  {
+  position:relative;
+  width:44em;
+}
+
 
 
 
@@ -2618,6 +2856,42 @@ div.title {
 }
 
 
+blockquote {
+  background:#f9f9f9;
+  border-left:10px solid #D0DEC1;
+  margin:1.5em 10px;
+  padding:.5em 10px;
+}
+blockquote p {
+  display:inline;
+}
+
+
+p {
+  margin:0 0 10px;
+  padding:0;
+}
+
+.rarrow:before{
+  content: '→';
+  font-size:3em;
+}
+
+#vote_form .result {
+  float:right; 
+  background:#CFC1DE; 
+  display: none;
+  height: 6px;
+  border:1px solid #999;
+}
+#vote_form .vote_results {
+  float:right;
+}
+
+#vote_form .vote_count {
+  padding: 0 5px;
+}
+
 /*
 CSS Social Sign-in Buttons by Bloop [http://bloop.co] are licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License.
 Please link to Bloop [http://bloop.co] somewhere on the page when you use these buttons.
@@ -2644,6 +2918,7 @@ Use width:auto or a fixed width on the .social_buttons element
     outline: none;
     padding: 0;
     text-decoration: none !important;
+    margin:0.2em;
 }
 button::-moz-focus-inner { 
     border: 0;
@@ -2800,4 +3075,44 @@ button::-moz-focus-inner {
 }
 .sb_48:active > span {
     line-height: 38px;
+}
+
+
+
+/* Markup for sequence alignments */
+
+.align-default {
+  color: #666666;
+}
+
+.align-unknown {
+  color: #999999;
+}
+
+.align-hydrophobic {
+  color: #33cc00;
+}
+
+.align-cysteine {
+  color: #2c5197;
+}
+
+.align-negative {
+  color: #0033ff;
+}
+
+.align-lg-hydrophobic {
+  color: #009900;
+}
+
+.align-positive {
+  color: #cc0000;
+}
+
+.align-polar {
+  color: #6600cc;
+}
+
+.align-alcohol {
+  color: #0099ff;
 }

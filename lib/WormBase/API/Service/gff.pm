@@ -34,7 +34,15 @@ has 'aggregators' => (
     lazy => 1,
     default => sub {
         my $self = shift;
-        return $self->conf->{data_sources}->{$self->source}->{aggregator};
+        my @array;
+        my $ret = $self->conf->{data_sources}->{$self->source}->{aggregator};
+
+	if ($ret =~ /ARRAY/) {
+	    push(@array, @$ret);
+	} else {
+	    push(@array, $ret);
+	}
+        return \@array;
     }
 );
 

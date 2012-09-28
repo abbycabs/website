@@ -20,28 +20,44 @@
    ACE2WB_MAP = c.model('WormBaseAPI').modelmap.ACE2WB_MAP.class;
 
     MACRO tag2link(data,text,title) BLOCK;  
-      IF data.defined ;
-         UNLESS text; text = data.label; END;
-         text2link(data.class, data.id, text, title, data.taxonomy);
+      IF data.defined;
+        UNLESS text; text = data.label; END;
+        IF data.class.defined;
+          ln = data.coord.start ? gbrowselink(data, data.id) : text2link(data.class, data.id, text, title, data.taxonomy);
+          IF data.style;
+            '<span style="'_ data.style _ "\">$ln</span>";
+          ELSE;
+            "$ln";
+          END;
+        ELSE;
+          data.label || data;
+        END;
       END;
    END;
 
    # Link a hash of objects
    # Suitable for hashes of objects created by _pack_objects()
-   MACRO link_objects(data, separator) BLOCK;
+   MACRO tags2link(data, separator, expandable_title) BLOCK;
       result = [];
-      # Is this a hash?
       IF data.keys;
-        FOREACH key IN data.sort;
-          result.push(tag2link(data.$key));
+        IF data.class.defined;
+          result.push(tag2link(data));
+        ELSE;
+          FOREACH key IN data.sort;
+            result.push(tag2link(data.$key));
+          END;
         END;
-        result.join('<br />');
-      # An array (or possibly even a scalar: TT seems to treat single element arrays as scalars?)
       ELSE;
         FOREACH item IN data;
           result.push(tag2link(item));
         END;
-        result.join(separator || '<br />');
+      END;
+      IF (expandable_title && (result.size > 10));
+        WRAPPER toggle title=result.size _ ' ' _ expandable_title;
+          result.join(separator || '<br />');
+        END;
+      ELSE;
+      result.join(separator || '<br />');
       END;
    END;
 
@@ -52,10 +68,17 @@
           c.uri_for('/species', taxonomy || 'c_elegans' ,class, id).path;
         ELSIF (class == 'bench');
           c.uri_for('/me', id).path;
+        ELSIF (class == 'page');
+          id;
         ELSIF (class == 'picture');
            c.uri_for('/rest', 'widget', 'picture', id, 'lightbox').path;
         ELSIF (class == 'genomic_location');
-           c.uri_for('/tools', 'genome', 'gbrowse').path _ '/' _ id;
+	     # In this context, uri_for() is escaping the /? in id, breaking the URL.
+	     # Would be preferable to modify creation of id, then pass it in as a query parameter perhaps?
+#           c.uri_for('/tools', 'genome', 'gbrowse', id).path;
+	    '/tools/genome/gbrowse/' _ id;
+        ELSIF (class == 'txt');
+          '';
         ELSIF !(c.config.sections.resources.$class.defined);
           c.uri_for('/search', 'all', id).path;
         ELSE;
@@ -68,9 +91,10 @@
 # URLs
     MACRO text2link(class,id,text,title,taxonomy) BLOCK;  
       class = (ACE2WB_MAP.$class || class) FILTER lower;
-      #IF (class == 'sw' OR class == 'sptrembl' OR class == 'tr'); class = 'uniprot'; END; #HACK: maybe do this somewhere else
       IF site.external_urls.$class.defined; 
           external_link(class, text, id);
+      ELSIF id.match('CHROMOSOME');
+	  text;
        ELSE;
         url = get_url(class, id, taxonomy);
 
@@ -80,22 +104,37 @@
           text = markup_var("$text","var", 1);
         END;
 
-        "<a href=\"$url\" class=\"$class-link\" title=\"$title\">$text</a>";
-
-        IF (class=='sequence');
-          "<a href='" _ c.uri_for('/rest/widget', class, id, 'sequences') _ "' class='button ui-corner-all tip-simple slink' tip='download'>";
+        IF downloadable(class);
+          "<a href='" _ c.uri_for('/rest/widget', class, id, 'sequences').path  _ '?colorbox=1' _ "' class='button ui-corner-all tl slink' data-class='$class' tip='download sequence'>";
             "<span class='ui-icon ui-icon-arrowthickstop-1-s ui-button'></span>";
           "</a>";
         END;
+
+        url ? "<a href=\"$url\" class=\"$class-link\" title=\"$title\">$text</a>" : "$text";
+
       END;
    END;
 
     MACRO searchlink(class, id, text) BLOCK;
-       url = c.uri_for('/search', class, id);
+       url = c.uri_for('/search', class, id).path ;
        "<a href=\"$url\" class=\"$class-link\">$text</a>";
     END;
 
+    # return true for a downloadable object
+    MACRO downloadable(class) BLOCK;
+      class = (class || object.name.data.class) | lower;
+      ret = (class=='sequence' || class=='protein' || class=='transcript' || class=='cds' ) ? 1 : 0;
+      ret;
+    END;
 
+
+    MACRO gbrowselink(data, label) BLOCK;
+      valid_classes = ['gene', 'variation', 'sequence', 'transcript'];
+      IF data.taxonomy && (valid_classes.grep(data.class).size > 0);
+        url = c.uri_for('/tools', 'genome', 'gbrowse', data.taxonomy).path _ '?name=' _ item.name.class _ ":" _ item.name.id;
+        label ? "<a href=\"$url\">$label</a>" : "<span id='fade'>[<a href=\"$url\">gbrowse</a>]</span>";
+      END;
+    END;
 
 
 # use this to pluraize a word
@@ -161,7 +200,7 @@
 
 # Used to determine the type of page for layout saving
   MACRO page_class BLOCK;
-    UNLESS object;
+    UNLESS (object.name.data.class);
       ret = c.req.path.replace('[/_]', '-');
       UNLESS ret;ret='home'; END;
       ret;
@@ -215,7 +254,7 @@
 # eg. OMIM:604297, 309000
     MACRO markup_omim(text) BLOCK;
       text = "$text";
-      text.replace('OMIM:(\d{6})((, )(\d{6}))?', text.search('OMIM:(\d{6})((, )(\d{6}))') ? external_link('OMIM','OMIM:$1', '$1') _  '$3' _ external_link('OMIM', '$4', '$4') : external_link('OMIM','OMIM:$1', '$1'));
+      text.replace('OMIM:(\d{6})((, )(\d{6}))?', text.search('OMIM:(\d{6})((, )(\d{6}))') ? external_link('omim','OMIM:$1', '$1') _  '$3' _ external_link('omim', '$4', '$4') : external_link('omim','OMIM:$1', '$1'));
     END;
 
 # Markup any locus reference in text
@@ -254,9 +293,9 @@
 
 #  Add params to have options on what to markup.  ie. omim, locus...
     MACRO markup(text, omim, locus, var, link) BLOCK;
-      IF ((locus || 1) == 1); text = markup_locus(text, (link || 0)); END;
-      IF ((var || 1) == 1); text = markup_var(text, (link || 0)); END;
-      IF ((locus || 1) == 1); text = markup_omim(text); END;
+      UNLESS (locus == 0); text = markup_locus(text, (link || 0)); END;
+      UNLESS (var == 0); text = markup_var(text, (link || 0)); END;
+      UNLESS (omim == 0); text = markup_omim(text); END;
       text;
     END;
 
@@ -310,133 +349,5 @@
    USE image  = format('<img src="%s" valign="middle" width="100%">');
    USE toggle = format('<img border="0" height="11" src="%s" width="6" alt="&gt;" valign="middle"> %s');
 
-  ###########################################
-  # Class-to-action mapping
-  # Map classes to their old school URLs
-  # This is only used by the classic view
-  ###########################################
-  site.class2action = { 	
-	       align     = { action = '/db/seq/align'
-		             title  = 'alignment' }
-	       aligner   = { action = '/db/seq/aligner'
-                             title  = 'EST Alignments' }
-	       antibody  = { action = '/db/gene/antibody'
-                             title  = 'Antibody Summary' }
-	       aoterm    = { action = '/db/ontology/anatomy'
-                             title  = 'Anatomy Ontology' }
-	       author    = { action = '/db/misc/person'
-                             title =  'Author Info' }
-	       biblio    = { action = '/db/misc/biblio'
-                             title  = 'Bibliography' }
-	       cds       = { action = '/db/seq/sequence'
-                             title  = 'Sequence Summary' }
-	       cell      = { action = '/db/cell/cell.cgi'
-                             title  = 'Cell Summary' }
-	       clone     = { action = '/db/seq/clone'
-                             title  = 'Clone Summary' }
-	       expression_cluster = { action = '/db/microarray/expression_cluster'
-                            	      title  = 'Microarray Expression Cluster Summary' }
-
-	       expr_pattern = { action = '/db/gene/expression'
-                        	title  = 'Expression Pattern' }
-
-	       expr_profile = { action = '/db/gene/expr_profile'
-	                        title  = 'Expression profile' }
-
-	       gene       = { action = '/db/gene/gene'
-                              title  = 'Gene Summary' }
-
-	       gene_name  = { action = '/db/gene/gene'
-                              title  = 'Gene Summary' }
-
-	       gene_class = { action = '/db/gene/gene_class'
-                              title  = 'Gene Class Summary' }
-	       gene_regulation = { action = '/db/gene/regulation'
-                    	           title  = 'Gene Regulation Summary' }
-	       gmap       = { action = '/db/misc/epic'
-                              title  = 'Genetic Map' }
-	       go_term    = { action = '/db/ontology/gene'
-                              title  = 'GO Term' }
-	       go_dag     = { action = '/db/ontology/go_dag'
-                              title  = 'GO DAG' }
-	       homology_group = { action = '/db/gene/homology_group'
-               	                  title  = 'Homology Group' }
-	       hunter     = { action = '/db/seq/gbrowse/elegans/'
-                              title  = 'Genome Browser' }
-	       laboratory = { action = '/db/misc/laboratory'
-                              title  = 'Lab Listing' }
-	       life_stage = { action = '/db/misc/life_stage'
-                              title  = 'Life Stage' }
-	       locus      = { action = '/db/gene/locus'
-                              title  = 'Locus Summary' }
-	       mappingdata = { action = '/gene/mapping_data'
-	                       title  = 'Map Data' }
-	       mapservlet  = { action = '/db/mapview/geneticmap'
-	                       title  = 'Clickable Map' }
-	       MindOfWorm  = { action = '/db/cell/mindofworm'
- 	                       title  = 'Mind of Worm' }
-	       microarray_experiment  = {
-		               action  = '/db/microarray/results'
-	 	               title   = 'Microarray Summary' }
-	       microarray_results    = { action = '/db/microarray/results'
-	 	                         title  = 'Microarray Summary' }
-	       motif       = { action = '/db/gene/motif'
-	                       title  = 'Motif' }
-	       model       = { action = '/db/misc/model'
-	                       title  = 'Schema' }
-	       nbrowse     = { action = '/db/seq/interaction_viewer'
- 	                       title  = 'N-Browse Interaction Viewer'}
-	       nearby_genes= { action = '/db/gene/genetable#pos'
-	                       title  = 'Nearby Genes' }
-	       oligo_set    = { action = '/db/seq/pcr'
-	                        title  = 'Microarray Oligos' }
-	       operon       = { action = '/db/gene/operon'
-	                        title  = 'Operon Summary' }	       
-	       paper        = { action = '/db/misc/paper'
-	                        title  = 'Citation' }	       
-	       pcr_product  = { action = '/db/seq/pcr'
-	                        title  = 'PCR Assay' }	       
-	       pedigree     = { action = '/db/searches/pedigree'
-	                        title  = 'Pedigree Browser' }	       
-	       person       = { action = '/db/misc/person'
-	                        title  = 'Person Info' }	       
-	       person_name  = { action = '/db/misc/person'
-	                        title  = 'Person Info' }	       
-	       phenotype    = { action = '/db/misc/phenotype'
-	                        title  = 'Phenotype' }	       
-	       pic          = { action = '/db/misc/epic'
-	                        title  = 'Acedb Image' }	       
-	       protein      = { action = '/db/seq/protein'
-	                        title  = 'Protein Summary' }	       
-	       rearrange    = { action = '/db/gene/rearrange'
-	                        title  = 'Rearrangement Summary' }	       
-	       rnai         = { action = '/db/seq/rnai'
-	                        title  = 'RNAi Summary' }	       
-	       sagetag      = { action = '/db/seq/sage'
-	                        title  = 'SAGE Summary' }	       
-	       sequence     = { action = '/db/seq/sequence'
-	                        title  = 'Sequence Summary' }	       	       
-	       strain       = { action = '/db/gene/strain'
-	                        title  = 'Strain Summary' }	       
-	       structure_data = { action = '/db/gene/structure_data'
-	                          title  = 'Structure_data' }	       
-	       synteny      = { action = '/db/misc/ebsyn'
-                                title  = 'Synteny Browser'
-                              }
-	       transgene    = { action = '/db/gene/transgene'
-	                        title  = 'Transgene Summary' }	       
-	       tree         = { action = '/db/misc/etree'
-	                        title  = 'Tree Display' }	       
-	       variation    = { action = '/db/gene/variation'
-	                        title  = 'Variation Summary' }	       
-	       wtp          = { action = '/db/seq/wtp'
-	                        title  = 'WTP Summary' }	       
-	       xml          = { action = '/db/misc/xml'
-	                        title  = 'XML' }	       
-	       y2h          = { action = '/db/seq/y2h'
-	                        title  = 'Y2H interaction' }	       
-	       yh           = { action = '/db/seq/y2h'
-	                        title  = 'YH interaction' }
-	      };
 
 -%]

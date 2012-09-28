@@ -58,14 +58,11 @@ http://wormbase.org/species/*/anatomy_term
 # << include name >>
 
 sub term {
-	my ($self) = @_;
+    my ($self) = @_;
 
-    my $data = $self->_pack_obj($self ~~ 'Term');
-    $data->{class} = 'Anatomy_term' if $data; # important or no?
-
-	return {
-		data        => $data,
-		description => 'Term in the Anatomy ontology',
+    return {
+	data        => $self->_pack_obj($self ~~ 'Term'),
+	description => 'Term in the Anatomy ontology',
     };
 }
 
@@ -123,8 +120,8 @@ B<Response example>
 
 sub definition {
     my $self   = shift;
-    my $object = $self->object;
-    my $data   = $object->Definition;
+    my $data   = $self ~~ 'Definition';
+
     return {
         data        => $data ? "$data" : undef,
         description => 'definition of the anatomy term',
@@ -183,20 +180,11 @@ B<Response example>
 =cut
 
 sub synonyms {
-    my $self     = shift;
-    my $object   = $self->object;
-    my @synonyms = $object->Synonym;
-	my @data;
+    my $self = shift;
+    my @data = map {"$_"} @{$self ~~ '@Synonym'};
 
-    foreach my $synonym (@synonyms) {
-        #my $synonym;
-        #$synonym = eval{$entry->Primary_name->right;};
-        # my $tag_info = $self->_pack_obj($synonym);
-        push @data, $self->_pack_obj($synonym);
-    }
     return {
-        description =>
-          'synonyms that have been used to describe the anatomy term',
+        description => 'synonyms that have been used to describe the anatomy term',
         data => @data ? \@data : undef
     };
 }
@@ -204,6 +192,16 @@ sub synonyms {
 # sub remarks {}
 # Supplied by Role; POD will automatically be inserted here.
 # << include remarks >>
+
+#######################################
+#
+# The Assocations Widget
+#
+#######################################
+
+=head2 Association
+
+=cut
 
 =head3 transgenes
 
@@ -272,13 +270,6 @@ sub transgenes {
     };
 }
 
-
-#######################################
-#
-# The Expression patterns
-#
-#######################################
-
 =head3 expression_clusters
 
 This method will return a data structure expression_clusters associated with this anatomy_term.
@@ -334,17 +325,14 @@ B<Response example>
 sub expression_clusters {
     my $self   = shift;
     my $object = $self->object;
-    my $desc   = 'notes';
     my @data_pack;
-    my @expression_clusters = $object->Expression_cluster;
-    foreach my $expression_cluster (@expression_clusters) {
-        my $ec_description = $expression_cluster->Description;
-        my $ec_data        = $self->_pack_obj($expression_cluster);
 
+    foreach my $expression_cluster ($object->Expression_cluster) {
+        my $ec_description = $expression_cluster->Description;
         push @data_pack,
           {
-            'ec_data'     => $ec_data,
-            'description' => "$ec_description"
+            'ec_data'     => $self->_pack_obj($expression_cluster),
+            'description' => $ec_description && "$ec_description",
           };
     }
     return {
@@ -356,22 +344,6 @@ sub expression_clusters {
 # sub expression_patterns {}
 # Supplied by Role; POD will automatically be inserted here.
 # << include expression_patterns >>
-
-
-#####################
-## browser
-#####################
-
-#####################
-## term diagram
-#####################
-
-#####################
-## associations
-####################
-
-
-
 
 =head3 gene_ontology
 
@@ -422,9 +394,7 @@ curl -H content-type:application/json http://api.wormbase.org/rest/field/anatomy
 =cut 
 
 sub gene_ontology {
-    my $self     = shift;
-    my $object   = $self->object;
-    my @go_terms = $object->GO_term;
+    my $self = shift;
 
     my @data = map {
         term    => $self->_pack_obj($_), # will this be needed?
@@ -491,8 +461,9 @@ B<Response example>
 sub anatomy_functions {
     my ($self) = @_;
 
+    my $data = $self->_anatomy_function('Anatomy_function');
     return {
-        data        => $self->_anatomy_function('Anatomy_function'),
+        data        => @$data ? $data : undef,
         description => 'anatomy_functions associatated with this anatomy_term',
     };
 }
@@ -551,14 +522,13 @@ B<Response example>
 
 sub anatomy_function_nots {
     my $self      = shift;
-    my $object    = $self->object;
-    my $data_pack = $self->_anatomy_function('Anatomy_function_not');
+
+    my $data = $self->_anatomy_function('Anatomy_function_not');
     return {
-        'data'        => $data_pack,
+        'data'        => @$data ? $data : undef,
         'description' => 'anatomy_functions associatated with this anatomy_term'
     };
 }
-
 
 
 #######################################
@@ -587,14 +557,35 @@ sub anatomy_function_nots {
 
 sub _anatomy_function {
     my ($self, $tag) = @_;
-
-	my @data_pack = map {
-            af_data   => $self->_pack_obj($_),
-            phenotype => $self->_pack_obj(scalar $_->Phenotype),
+    my $object = $self->object;
+    my @data_pack;
+    foreach ($object->$tag){
+	my @bp_inv = map { if ("$_" eq "$object") {my $term = $_->Term; { text => $term && "$term", evidence => $self->_get_evidence($_)}}
+			   else { { text => $self->_pack_obj($_), evidence => $self->_get_evidence($_)}}
+			  } $_->Involved;
+	my @bp_not_inv = map { if ("$_" eq "$object") {my $term = $_->Term; { text => $term && "$term", evidence => $self->_get_evidence($_)}}
+               else { { text => $self->_pack_obj($_), evidence => $self->_get_evidence($_)}}
+			  } $_->Not_involved;
+    
+    my @assay = map { my $as = $_->right; my @geno = $as->Genotype; 
+                                     {evidence => { genotype => join('<br /> ', @geno) },
+                        text => "$_",}
+              } $_->Assay;
+    my $pev;
+	push @data_pack, {
+            af_data   => $_ && "$_",
+            phenotype => ($pev = $self->_get_evidence($_->Phenotype)) ? 
+                          { evidence => $pev,
+                           text => $self->_pack_obj(scalar $_->Phenotype)} : $self->_pack_obj(scalar $_->Phenotype),
             gene      => $self->_pack_obj(scalar $_->Gene),
-    }, $self->object->$tag; # array of hashes -- note the comma
+        assay    => @assay ? \@assay : undef,
+	    bp_inv    => @bp_inv ? \@bp_inv : undef,
+	    bp_not_inv=> @bp_not_inv ? \@bp_not_inv : undef,
+	    reference => $self->_pack_obj(scalar $_->Reference),
+	    };
+    } # array of hashes -- note the comma
 
-    return @data_pack ? \@data_pack : undef;
+    return \@data_pack;
 }
 
 __PACKAGE__->meta->make_immutable;

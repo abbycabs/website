@@ -1,3 +1,4 @@
+<h2>[% fields.name.data.label %] </h2>
 [% gene_image = fields.expression_image.data %]
 [% IF gene_image %]
 <a href="[% gene_image %]" target="_blank" >[% image(gene_image)  %]</a>
@@ -10,16 +11,12 @@ WRAPPER highlight_box;
  
    status;
 
-   WRAPPER $field_block title="WormBase ID";
-           fields.name.data.id;
-   END;
-
 END;
 
 
 WRAPPER $field_block title="" key='description';
       # The main concise description
-      '<div class="text-width" style="clear:left">';
+      '<div class="description">';
          markup(fields.description.data);
       '</div>';
 
@@ -34,5 +31,8 @@ WRAPPER $field_block title=pluralize("Subcellular Location", fields.subcellular_
 END;
 
 remarks;
+ 
+ 
+PROCESS classes/expr_pattern/curated_images.tt2 curated_images= fields.curated_images;
 
 %]

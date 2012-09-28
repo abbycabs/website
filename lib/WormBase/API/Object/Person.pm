@@ -30,7 +30,7 @@ has 'address_data' => (
 	my %address;
 	
 	foreach my $tag ($object->Address) {
-	    if ($tag =~ m/street|email|office/i) {		
+	    if ($tag =~ m/street|email|office|web_page/i) {		
 		my @data = map { $_->name } $tag->col;
 		$address{lc($tag)} = \@data;
 	    } else {
@@ -40,6 +40,35 @@ has 'address_data' => (
 	return \%address;
     }
     );
+
+
+has 'previous_address_data' => (
+    is   => 'ro',
+    isa  => 'ArrayRef',	
+    lazy => 1,
+    default => sub {	
+	my $self = shift;
+	my $object = $self->object;
+	my @entries;
+	foreach my $entry ($object->Old_address) {
+	    my %address;
+	    $address{date_modified} = "$entry";
+	    foreach my $tag ($entry->col) {
+		if ($tag =~ m/street|email|office/i) {		
+		    my @data = map { $_->name } $tag->col;
+		    $address{lc($tag)} = \@data;
+		} else {
+		    $address{lc($tag)} =  $tag->right->name;
+		}
+	    }
+	    push @entries,\%address
+	}
+#	return \%address;
+	return \@entries;
+    }
+    );
+
+
 
 has 'publication_data' => (
     is      => 'ro',
@@ -469,7 +498,7 @@ other phone numbers of the person.
 
 =item PERL API
 
- $data = $model->street_other_phone();
+ $data = $model->other_phone();
 
 =item REST API
 
@@ -635,12 +664,73 @@ B<Response example>
 sub web_page {
     my $self    = shift;
     my $address = $self->address_data;
-    my $url = $address->{web_page};
-    $url =~ s/HTTP\:\/\///;
+    my @urls = map { s/HTTP\:\/\///; } $address->{web_page};
     
     my $data = { description => 'web address of the person',
-		 data        => $url || undef };
+		 data        => \@urls || undef };
     return $data;   
+}
+
+
+
+
+=head3 previous_addresses
+
+This method returns a data structure containing the 
+previous addresses of the person, if known, with keys
+of street address, country, institution, email, and date_modified.
+
+=over
+
+=item PERL API
+
+ $data = $model->previous_addresses();
+
+=item REST API
+
+B<Request Method>
+
+GET
+
+B<Requires Authentication>
+
+No
+
+B<Parameters>
+
+WBPerson ID
+
+B<Returns>
+
+=over 4
+
+=item *
+
+200 OK and JSON, HTML, or XML
+
+=item *
+
+404 Not Found
+
+=back
+
+B<Request example>
+
+curl -H content-type:application/json http://api.wormbase.org/rest/field/person/WBPerson242/previous_addresses
+
+B<Response example>
+
+<div class="response-example"></div>
+
+=back
+
+=cut
+
+sub previous_addresses {
+    my $self      = shift;
+    my $addresses = $self->previous_address_data;
+    return { data        => $addresses || undef,
+	     description => 'previous addresses of the person'}; 
 }
 
 
@@ -724,6 +814,7 @@ sub previous_laboratories {
 		 data        => (@data > 0) ? \@data : undef};
     return $data;		     
 }
+
 
 =head3 strain_designation
 
@@ -845,7 +936,7 @@ sub allele_designation {
     my $self   = shift;
     my $object = $self->object;
     my $lab    = eval{$object->Laboratory};
-    my $allele_designation = ($lab) ? $lab->Allele_designation->name : undef;
+    my $allele_designation = ($lab && $lab->Allele_designation) ? $lab->Allele_designation->name : undef;
     my $data = { description => 'allele designation of the affiliated laboratory',
 		 data        => $allele_designation };
     return $data;
@@ -911,7 +1002,7 @@ sub lab_representative {
     if ($lab) { 
 	my $representative = $lab->Representative;
 	my $name = $representative->Standard_name; 
-	$rep = $self->_pack_obj($representative,$name);
+	$rep = $self->_pack_obj($representative, "$name");
     }
     
     my $data = { description => 'official representative of the laboratory',
@@ -974,10 +1065,9 @@ B<Response example>
 sub gene_classes {
     my $self   = shift;
     my $object = $self->object;
-    my $lab    = eval{$object->Laboratory};
+    my $lab    = eval { $object->Laboratory };
 
-    my @gene_classes = $lab ? $lab->Gene_classes : undef;
-    @gene_classes = map { $self->_pack_obj($_) } @gene_classes if $lab;
+    my @gene_classes = map { $self->_pack_obj($_) } $lab->Gene_classes if $lab;
     
     my $data = { description => 'gene classes assigned to laboratory',
 		 data        => @gene_classes ? \@gene_classes : undef};
@@ -1387,16 +1477,15 @@ sub meeting_abstracts {
 #    return $data;
 #}
 #
-## Probably don't need to be packed, just displayed as strings
-#sub aka {
-#    my $self = shift;
-#    my $object = $self->object;
-#    my @aka = $object->Also_known_as;    
-#    @aka = map { $self->_pack_obj($_) } @aka;
-#    my $data = { description => 'aliases of the person',
-#		 data        => \@aka || undef };
-#    return $data;
-#}
+# # Probably don't need to be packed, just displayed as strings
+sub aka {
+   my $self = shift;
+   my $object = $self->object;
+   my @aka = map { "$_" } grep { "$_" ne $self->name->{data}{label} } $object->Also_known_as;
+   my $data = { description => 'known aliases',
+		        data        => @aka ? \@aka : undef };
+   return $data;
+}
 
 
 
@@ -1428,11 +1517,11 @@ sub _get_lineage_data {
 	my $duration = "$start_date[2]\ \-\ $end_date[2]"; 
 	
 	push @data, {
-	    'name'       => $self->_pack_obj($relation,$name),
-	    'level'      => "$level",
-	    'start_date' => "$start",
-	    'end_date'   => "$end",
-	    'duration'   => "$duration"
+	    'name'       => $self->_pack_obj($relation, $name && "$name"),
+	    'level'      => $level && "$level",
+	    'start_date' => $start && "$start",
+	    'end_date'   => $end && "$end",
+	    'duration'   => $duration && "$duration"
 	};
     }	
     return @data ? \@data : undef;

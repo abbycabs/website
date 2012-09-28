@@ -22,63 +22,62 @@ functions at WormBase.
 
 =cut
 
-sub index : Private {
-    my ( $self, $c ) = @_;
 
-    $c->response->body('Matched WormBase::Web::Controller::Admin in Admin.');
+
+sub registered_users :Path("registered_users") :Args(0){
+    my ( $self, $c ) = @_;
+    $c->stash->{noboiler} = 1;
+    $c->stash->{template} = 'auth/permissions.tt2';
+    if($c->check_user_roles('admin')){
+      $c->stash->{'template'}='admin/registered_users.tt2';
+      my @users;
+      if($c->assert_user_roles( qw/admin/)){
+      foreach my $user ($c->model('Schema::User')->search()) {
+          map { $user->{$_->role} = 1; } $user->roles;
+          push @users, $user;
+      }
+      $c->stash->{users}= @users ? \@users : undef;
+      }  
+    }
+
+} 
+
+sub admin_widget :Path("/admin") :Args(1) {
+    my ( $self, $c, $widget ) = @_;
+    $c->stash->{noboiler} = 1;
+    $c->stash->{template} = 'auth/permissions.tt2';
+    if($c->assert_user_roles( qw/admin/)){
+      $c->stash->{template} = "admin/$widget.tt2";
+    }
 }
 
 
 
-sub registered_users :Path("registered_users") {
-    my ( $self, $c ) = @_;
-    $c->stash->{noboiler} = 1;
-    $c->stash->{'template'}='admin/registered_users.tt2';
-    my @array;
-    if($c->check_user_roles('admin')){
-#       my $iter=$c->model('Schema::User') ;
-#       while( my $user= $iter->next){
-# 	  my $hash = { username   => $user->username,
-# 		       email      => $user->valid_emails,
-# 		       id         => $user->user_id,
-# 	  };
+#     "status_overview"
+# Create a quick system status overview with admin-level information 
+# (ie include names of backend servers)
+    # Display a general table of all of our servers.
+    # server, uptime, 12, 24, 48, 72 hour status  
 
-      my @users = $c->model('Schema::User')->search();
-      map { 
-        my @roles = $_->roles;
-        foreach my $role (@roles){
-          $_->{$role->role} = 1;
-        }
-      } @users;
-# 	  
-# 	  my @roles =$user->roles;
-# 	  
-# 	  map{$hash->{$_->role}=1;} @roles if(@roles);
-# 	  push @array,$hash;
-#       }
-#       
-      $c->stash->{users}=\@users;
-    }  
-} 
 
-sub system_status :Path("system_status") {
-    my ( $self, $c ) = @_;
-    $c->stash->{noboiler} = 1;
-    $c->stash->{template} = 'admin/system_status.tt2';
 
-    # Get the status of our server pool
-    # This is entirely dependent on our installation.
+# "status_servers"
+# Get the status of our server pool
+# This is entirely dependent on our installation.
+# Get a list of servers
+# For each server, check (possibly using capistrano)
+# - available disk space
+# - starman status
+# - cpu load
+# - memory usage
+# Would be nice to create RRD of each, too.
 
-    # Get a list of servers
-    # For each server, check (possibly using capistrano)
-    # - available disk space
-    # - starman status
-    # - cpu load
-    # - memory usage
 
-    # Would be nice to create RRD of each, too.
-
-} 
+# "status_proxy"
+# Fetch the status of our reverse proxy.
+# This is entirely dependent on our installation
+# and really only applicable to production.
+# RRD graphs of the proxy
 
 
 

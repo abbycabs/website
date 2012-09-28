@@ -1,93 +1,99 @@
-<h2 style="float:left">[% fields.name.data.label %]</h2>
+<h2><i>[% fields.name.data.label %]</i><span id="fade" style="font-size:0.7em;"> ([% fields.gene_class.data.description %])</span></h2> 
 
 [%
 
 WRAPPER highlight_box;
- 
-   taxonomy;
 
    WRAPPER $field_block title="Sequence" key="sequence_name";
-        tag2link(fields.sequence_name.data);
-   END;
-
-   WRAPPER $field_block title="Locus" key="locus_name";
-        tag2link(fields.locus_name.data);
+        fields.sequence_name.data;
    END;
 
    WRAPPER $field_block title=pluralize("Other name", fields.other_names.data.size) key="other_names";
-        IF fields.other_names.data; 
-              fields.other_names.data.join(', '); 
-        END;
+        markup_locus(fields.other_names.data.join(', '), 1); 
    END;
 
-   WRAPPER $field_block title="Type";
+   IF fields.classification.data.type;
+   WRAPPER $field_block title="Type" key="classification";
            fields.classification.data.type;
+   END;
+   END;
+
+   WRAPPER $field_block title="Gene class" key="gene_class";
+           tag2link(fields.gene_class.data.tag);
+   END;
+
+   WRAPPER $field_block title="Operon" key="operon";
+           tag2link(fields.operon.data);
    END;
 
    status;
 
    WRAPPER $field_block title="Cloned By" key="cloned_by";
-           tag2link(fields.name.cloned_by.data.cloned_by);
+           tag2link(fields.cloned_by.data.cloned_by);
    END;
 
-   WRAPPER $field_block title="WormBase ID";
-           fields.name.data.id _ ' v' _ fields.version.data;
+   WRAPPER $field_block title="Clone" key="clone";
+           tag2link(fields.clone.data);
+   END;
+
+   WRAPPER $field_block title="Named by" key="named_by";
+           tag2link(fields.named_by.data);
    END;
 
 END;
 
-
 # The main concise description
-'<div class="text-width" style="clear:left">';
-    markup(fields.concise_description.data);
+'<div class="description">';
+    evidence(fields.concise_description.data.evidence, 'Provisional_description', fields.concise_description.data.text);
 '</div>';
 
-# Structured descriptions
-IF fields.structured_description.data;
-    '<div class="toggle">Details</div>';
-    '<div class="returned field">';
-    id = 0;
-    FOREACH sd IN fields.structured_description.data.keys;
-          USE String(sd.replace('_', ' '));
-          WRAPPER $field_block title=String.capital;
-               FOREACH obj IN fields.structured_description.data.$sd;
-                   '<div class="text-width" style="margin:0.5em">';
-                      markup(obj.text);
-                      IF obj.evidence.check;
-                          '<a class="tooltip" href="#" title="Evidence" rel="/rest/evidence/gene/' _ fields.name.data.id _ '/' _ obj.evidence.tag _ '/' _ obj.evidence.index _ '"></a>';
-                      END;
-                   '</div>';
-               END;
-           END;
+IF (fields.human_disease_relevance.data.defined);
+'<h4>Human disease relevance:</h4>';
+    FOREACH obj IN fields.human_disease_relevance.data;
+        '<div class="text-width">';
+            evidence(obj.evidence,sd, obj.text);
+        '</div>';
     END;
-    '</div>';
+END;
+
+# Structured descriptions
+IF (fields.structured_description.data.defined);
+   WRAPPER toggle title="Details";
+    FOREACH sd IN fields.structured_description.data.keys;
+      USE String(sd.replace('_', ' '));
+      WRAPPER $field_block title=String.capital;
+          FOREACH obj IN fields.structured_description.data.$sd;
+              '<div class="text-width">';
+                  evidence(obj.evidence,sd, obj.text);
+              '</div>';
+          END;
+      END;
+    END;
+   END;
 END;
 
 
 # Legacy Information
 IF fields.legacy_information.data;
-     '<div class="toggle">From <i>C. elegans I</i> and <i>II</i> </div>';
-     '<div class="returned">';
+   WRAPPER toggle title="From <i>C. elegans I</i> and <i>II</i>";
           FOREACH desc IN fields.legacy_information.data;
               '<li>';
                    markup(desc, 0);
               '</li>';
             END;
-         '</div>';
+   END;
 END;
 
 # Also Refers to
 # Usually we show empty fields; but some things we actually want to suppress when empty
 IF fields.also_refers_to.data;
-         '<div class="toggle">Also refers to</div>';
-         '<div class="returned">';
-         '<div class="caveat-emptor">';
+   WRAPPER toggle title="Also refers to";
                fields.name.data.label;
                'has also been used to refer to:';
                FOREACH item IN fields.also_refers_to.data;
                    tag2link(item);
                END;
-          '</div>';
+   END;
 END;
 
 

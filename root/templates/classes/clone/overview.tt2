@@ -1,40 +1,24 @@
-<h2 style="float:left">[% fields.name.data.label %]</h2>
+<h2>[% fields.name.data.label %]</h2>
 
 [% 
 
 WRAPPER highlight_box;
- 
-   taxonomy;
 
    WRAPPER $field_block title='Type' key='type';
       fields.type.data;
    END;
 
-   WRAPPER $field_block title="WormBase ID";
-           fields.name.data.id;
-   END;
 
 END;
 
-
+'<div class="description">';
 WRAPPER $field_block title=pluralize('Corresponding sequence', fields.sequences.data.size) key='sequences';
-   link_objects(fields.sequences.data);
+   tags2link(fields.sequences.data);
 END;
 
 # this looks suspiciously like Genomic position in the Location widget...
-WRAPPER $field_block title=pluralize('Genomic position', fields.sequences.data.size) key='sequences';
-   links = [];
-   FOREACH seqname IN fields.sequences.data.sort;
-      seq = fields.sequences.data.$seqname;
-      IF seq.start && seq.end && seq.ref;
-         quarter_len = (seq.end - seq.start) div 4;
-         label = seq.ref _ ':' _ seq.start _ '..' _ seq.end;
-         external_link('genomic_location', label, 
-                          'c_elegans?ref=' _ seq.ref.replace('CHROMOSOME_','')  _
-                          '&start=' _ (seq.start - quarter_len) _
-                          '&stop='  _ (seq.end   + quarter_len));
-      END;
-   END;
+WRAPPER $field_block title=pluralize('Genomic position', fields.sequences.data.size) key='genomic_positions';
+  tags2link(fields.genomic_positions.data);
 END;
 
 expression_patterns;
@@ -54,7 +38,7 @@ WRAPPER $field_block title='Measured length' key='lengths';
 END;
 
 WRAPPER $field_block title=pluralize('Assigned to map', fields.maps.data.size) key='maps';
-   link_objects(fields.maps.data);
+   tags2link(fields.maps.data);
 END;
 
 WRAPPER $field_block title='Sequence status' key='sequence_status';
@@ -68,7 +52,7 @@ WRAPPER $field_block title='Sequence status' key='sequence_status';
 END;
 
 WRAPPER $field_block title='Canonical for' key='canonical_for';
-   link_objects(fields.canonical_for.data);
+   tags2link(fields.canonical_for.data);
 END;
 
 WRAPPER $field_block title='Refer to canonical clone' key='canonical_parent';
@@ -89,14 +73,14 @@ WRAPPER $field_block title='Screened positive for' key='screened_positive';
 END;
 
 WRAPPER $field_block title='Screened negative for' key='screened_negative';
-   link_objects(fields.screened_negative.data);
+   tags2link(fields.screened_negative.data);
 END;
 
 WRAPPER $field_block title='Gridded on' key='gridded_on';
-   link_objects(fields.gridded_on.data);
+   tags2link(fields.gridded_on.data);
 END;
 
 remarks();
-
+'</div>';
 %]
 

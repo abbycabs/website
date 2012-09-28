@@ -1,12 +1,13 @@
-<h2>[% tag2link(fields.name.data) %]</h2>
+<h2>[% fields.name.data.label %]</h2>
 
 [% 
 
 class = fields.name.data.class;
   
 WRAPPER highlight_box;
-
-
+    WRAPPER $field_block title='ORFeome Project' key='on_orfeome_project';
+	'<a href="..' _  fields.on_orfeome_project.data _ '">' _ fields.on_orfeome_project.data _ '</a>';
+    END;
 END;
 
 
@@ -35,23 +36,23 @@ END;
 
 WRAPPER $field_block title=(pluralize('Gene', fields.overlapping_genes.data.size) _
            ' Overlapping the Amplicon') key='overlapping_genes';
-   link_objects(fields.overlapping_genes.data);
+   tags2link(fields.overlapping_genes.data);
 END;
 
 WRAPPER $field_block title=pluralize('Overlaps CDS', fields.overlaps_CDS.data.size) key='overlaps_CDS';
-    link_objects(fields.overlaps_CDS.data);
+    tags2link(fields.overlaps_CDS.data);
 END;
 
 WRAPPER $field_block title=pluralize('Overlaps transcript', fields.overlaps_transcript.data.size) key='overlaps_transcript';
-    link_objects(fields.overlaps_transcript.data);
+    tags2link(fields.overlaps_transcript.data);
 END;
 
 WRAPPER $field_block title=pluralize('Overlaps pseudogene', fields.overlaps_pseudogene.data.size) key='overlaps_pseudogene';
-   link_objects(fields.overlaps_pseudogene.data);
+   tags2link(fields.overlaps_pseudogene.data);
 END;
 
 WRAPPER $field_block title=pluralize('Overlaps variation', fields.overlaps_variation.data.size) key='overlaps_variation';
-   link_objects(fields.overlaps_variation.data);
+   tags2link(fields.overlaps_variation.data);
 END;
 
 WRAPPER $field_block title='Amplified cDNA?' key='amplified';
@@ -60,11 +61,6 @@ WRAPPER $field_block title='Amplified cDNA?' key='amplified';
    ELSE;
    	  'No';
    END ;
-END;
-
-# TODO: the following should be in details box 
-WRAPPER $field_block title='ORFeome Project' key='on_orfeome_project';
-   '<a href="..' _  fields.on_orfeome_project.data _ '">' _ fields.on_orfeome_project.data _ '</a>';
 END;
 
 
@@ -82,7 +78,7 @@ IF class == 'PCR_product';
    laboratory;
 
    WRAPPER $field_block title='Microarray results' key='microarray_results';
-       link_objects(fields.microarray_results.data);
+       tags2link(fields.microarray_results.data);
     END;
 
     WRAPPER $field_block title='Assay conditions' key='assay_conditions';
@@ -91,5 +87,16 @@ IF class == 'PCR_product';
 END;
 
 # TODO: logic for product on ORFeome project;
+
+IF class == 'Oligo';
+
+   WRAPPER $field_block title='In Sequences' key='in_sequences';
+       tags2link(fields.in_sequences.data, '<br />', 'Sequences');
+    END;
+
+    WRAPPER $field_block title='PCR Products' key='pcr_products';
+       tags2link(fields.pcr_products.data, '<br />', 'PCR Products');
+    END;
+END;
 
 %]

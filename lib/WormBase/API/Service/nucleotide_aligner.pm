@@ -5,7 +5,6 @@ use Ace 1.51;
 use Bio::Graphics::Browser2::PadAlignment;
 use LWP::Simple;
 use Bio::Graphics::Browser2::Markup;
-use Data::Dumper;
 
 use Moose;
 with 'WormBase::API::Role::Object'; 
@@ -238,7 +237,7 @@ sub run {
     my $ragged = "Aligner.ragged=". $user_ragged || "Aligner.ragged=BLUMENTHAL_FACTOR";
     my $test =  "$sequence:$start..$end";
     
-    my $url_root = 'http://www.wormbase.org/db/gb2/gbrowse/c_elegans?';
+    my $url_root = 'http://www.wormbase.org/tools/genome/gbrowse/c_elegans?';
     #my $plugin_url = $url_root . "name=$test;plugin=Aligner;plugin_action=Go;label=ESTB;Aligner.upcase=CDS;Aligner.align=ESTB;". $ragged . ";" . $flip_format;
     my $plugin_url = $url_root . "name=$test;plugin=Aligner;plugin_action=Go;label=ESTB;Aligner.upcase=CDS;Aligner.align=ESTB;";
    

@@ -1,0 +1,47 @@
+[%
+  MACRO interaction_table BLOCK;
+  WRAPPER $field_block title="Interactions" key="interactions";
+      'Found ';
+      searchlink('interaction', object.name.data.id, fields.interactions.data.edges.size _ " " _ pluralize("interaction", fields.interactions.data.size));
+
+      build_data_table(order=['interactions','type','effector','effected','direction','phenotype','citations'],
+                       columns={type  => 'Interaction Type',
+                        effector => 'Effector',
+                        effected  => 'Effected',
+                direction => 'Direction',
+                phenotype => 'Phenotype',
+                interactions => 'Interactions',
+                citations => 'Citations',
+                        }, key='interaction',
+                   passed_data=fields.interactions.data.edges);
+    END;
+  END;
+%]
+
+
+
+[% IF fields.interactions.data.edges.size> 0 %]
+  [% IF fields.interactions.data.edges_all.size > 0 %]
+      [% TYPES = fields.interactions.data.types %]
+      [% NTYPES = fields.interactions.data.ntypes %]
+      [% NODES = fields.interactions.data.nodes %]
+      [% EDGES = fields.interactions.data.edges_all %]
+      [% WRAPPER shared/fields/interaction_details.tt2; 
+           #this is in a wrapper so the js will execute at the bottom of the widget and prevent blocking
+           interaction_table;
+         END %]
+  [% ELSE %]
+    [% WRAPPER toggle title="<b>View Interaction Network</b>" lazy=1 href=c.uri_for('/rest','field',object.name.data.class,object.name.data.id,'interaction_details').path id="interactions_toggle"%][% END %]
+    [% interaction_table %]
+  [% END %]
+[% ELSE %]
+  [% interaction_table %]
+[% END %]
+
+<a href="http://genemania.org/link?o=6239&g=[%
+FOREACH node IN fields.interactions.data.nodes.keys.sort;
+    IF fields.interactions.data.nodes.$node.class == 'Gene';
+	name = FILTER upper; fields.interactions.data.nodes.$node.label; END;
+	"$name|";
+    END;
+END; %]" target="_blank">View Interaction Network in GeneMANIA</a>

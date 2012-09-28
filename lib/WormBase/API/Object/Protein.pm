@@ -100,6 +100,20 @@ has 'cds' => (
 # << include central_dogma >>
 
 
+sub _build__common_name {
+    my $self   = shift;
+    my $object = $self->object;
+    # More than one corresponding CDS? Can't be sure of which CDS we're looking at
+    # so to avoid ambiguity, use the actual object identifier.
+    my @corresponding_cds = $object->Corresponding_CDS;
+    if (@corresponding_cds >= 2) {
+	return "$object";
+    } else {
+	# Otherwise use the more human friendly Gene_name.
+	return $object->Gene_name;
+    }
+}
+
 =head3 corresponding_gene
 
 This method returns a data structure containing the 
@@ -275,6 +289,68 @@ sub corresponding_cds {
 }
 
 
+
+
+
+sub corresponding_all {
+    my $self = shift;
+    my $protein = $self->object;
+    my @cds = grep{$_->Method ne 'history'} @{$self->cds};
+    my @rows;
+
+    foreach my $cds ( sort { $a cmp $b } @cds ) {
+        my %data  = ();
+        my $gff   = $self->_fetch_gff_gene($cds) or next;
+
+        my @sequences = $cds->Corresponding_transcript;
+        my $len_spliced   = 0;
+
+        for ( $gff->features('coding_exon') ) {
+
+            if ( $protein->Species =~ /elegans/ ) {
+                next unless $_->source eq 'Coding_transcript';
+            }
+            else {
+                next
+                    unless $_->method =~ /coding_exon/
+                        && $_->source eq 'Coding_transcript';
+            }
+            next unless $_->name eq $sequences[0];
+            $len_spliced += $_->length;
+        }
+
+        $len_spliced ||= '-';
+
+        $data{length_spliced}   = $len_spliced;
+
+        my @lengths = map { $self->_fetch_gff_gene($_)->length;} @sequences;
+        $data{length_unspliced} = @lengths ? \@lengths : undef;
+
+
+        my $peplen = $protein->Peptide(2);
+        my $aa     = "$peplen";
+        $data{length_protein} = $aa if $aa;
+
+        my $gene = $cds->Gene;
+
+        my $type = $sequences[0]->Method;
+        $type =~ s/_/ /g;
+        @sequences =  map {$self->_pack_obj($_)} @sequences;
+        $data{type} = $type && "$type";
+        $data{model}   = \@sequences;
+        $data{protein} = $self->_pack_obj($protein, undef, style => 'font-weight:bold');
+        $data{cds} = $cds ? $self->_pack_obj($cds) : '(no CDS)';
+        $data{gene} = $self->_pack_obj($gene);
+        push @rows, \%data;
+    }
+
+    return {
+        description => 'corresponding cds, transcripts, gene for this protein',
+        data        => @rows ? \@rows : undef
+    };
+}
+
+
 =head3 type (DEPRECATING!)
 
 This method returns a data structure containing the 
@@ -326,8 +402,9 @@ B<Response example>
 
 sub type {
     my $self = shift;
+    my $data = eval {$self->cds->[0]->Method};
     return { description => 'The type of the protein',
-	     data        =>  eval {$self->cds->[0]->Method} || 'None' ,
+	     data        =>  $data && "$data",
     }; 
 }
 
@@ -399,14 +476,14 @@ sub best_human_match {
           {score => $score, hit => $hit}
           if !$best || $prev_score < $curr_score;
     }
-
+    
     return {
         description => 'best human BLASTP hit',
-        data        => {
-                hit         => $self->_pack_obj($best->{hit}, $best->{hit}->Gene_name),
-                description => $best->{hit}->Description || $best->{hit}->Gene_name,
+        data        => $best->{hit} ? {
+                hit         => $self->_pack_obj($best->{hit}),
+                description => sprintf($best->{hit}->Description) || sprintf($best->{hit}->Gene_name),
                 evalue      => sprintf("%7.3g", 10**-$best->{score})
-            }
+            } : undef
     };
 }
 
@@ -692,7 +769,7 @@ sub amino_acid_composition {
     map { push @aminos, { aa=>$abbrev{$_}, comp=>$composition->{$_} }} keys %$composition;
 
     return { description => 'The amino acid composition of the protein',
-	     data        =>  \@aminos ,
+	     data        =>  @aminos ? \@aminos :undef,
     }; 
 }
 
@@ -995,7 +1072,7 @@ sub motifs {
       my $title = $_->Title;
       my ($database,$description,$accession) = $_->Database->row if $_->Database;
       $title||=$_;
-      push @row,[("$database","$title",{ label=>"$_", id=>"$_", class=>$_->class})];
+      push @row,[($database && "$database", $title && "$title",{ label=>"$_", id=>"$_", class=>$_->class || undef})];
 #       $hash{database}{$_} = $database;
 #       $hash{description}{$_} = $title||$_;
 #       $hash{accession}{$_} = { label=>$_, id=>$_, class=>$_->class};
@@ -1118,8 +1195,6 @@ sub pfam_graph {
 				     v_align=>"bottom",
 				     metadata => {
 					 type=>"exon".$count,
-					 start=>$end_holder,
-					 end=>$end,
 				     },
 	    };
 	    $end_holder = $end+1;
@@ -1156,7 +1231,6 @@ sub pfam_graph {
 				     metadata => {
 					 database=>$obj->{type},
 					 description=>"$desc",
-					 start=>$obj->{start},
 					 identifier=>$identifier,
 				     },
 	    };
@@ -1182,7 +1256,7 @@ sub pfam_graph {
 
     return {
         description => 'The motif graph of the protein',
-        data        => $hash,
+        data        => scalar keys %$hash ? $hash : undef,
     };
 }
 } # end of block for pfam_graph
@@ -1279,22 +1353,22 @@ sub motif_details {
 	    if (@multiple > 1) {
 		foreach my $start (@multiple) {
 		    my $stop = $start->right;
-		    push @tot_positions,[  ({label=>$label,id=>$label,class=>$feature->class},$type,"$desc",
-					    "$start",
-					    "$stop")
+		    push @tot_positions,[  ({label=>$label,id=>$label,class=>$feature->class},$type, $desc && "$desc",
+					$start && "$start",
+					$stop && "$stop")
 		    ];
 		}
 	    } else {
-		push @tot_positions,[  ({label=>$label,id=>$label,class=>$feature->class},$type,"$desc",
-					"$start",
-					"$stop")
+		push @tot_positions,[  ({label=>$label,id=>$label,class=>$feature->class},$type, $desc && "$desc",
+					$start && "$start",
+					$stop && "$stop")
 		];
 	    }
 	}
 	
     }
     my $data = { description => 'The motif details of the protein',
-		 data        => \@tot_positions,
+		 data        => @tot_positions ? \@tot_positions : undef,
     }; 
     
 }
@@ -1480,9 +1554,9 @@ sub history {
     my @data;    
     foreach my $version ($object->History) {
 	my ($event,$prediction)  = $version->row(1);
-	push @data, { version    => "$version",
-		      event      => "$event",
-		      prediction => $self->_pack_obj($prediction), };
+	push @data, { version    => "$version" || undef,
+		      event      => "$event" || undef,
+		      prediction => $prediction ? {id=>"$prediction", class=>'gene'} : undef, };
     }
     
     return { description => 'curatorial history of the protein',
@@ -1717,7 +1791,7 @@ sub _draw_image {
 			-bump        => 1,
 			-sort_order  => 'high_score',
 			-bgcolor     => $color,
-			-font2color  => 'red',
+			-font2color  => 'grey',
 			-height      => 6,
 			-linewidth   => 1,
 			-description => 1,
@@ -1782,6 +1856,7 @@ sub hit_to_url {
     $accession =~ s/CG/00/ if ($prefix =~ /FLYBASE/);
     return ($prefix,$accession);
 }
+
 
 __PACKAGE__->meta->make_immutable;
 

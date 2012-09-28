@@ -171,31 +171,91 @@ B<Response example>
 
 sub sequences {
     my ($self) = @_;
+    my @sequences = map { $self->_pack_obj($_) } @{$self ~~ '@Sequence'};
+    
+    return {
+        description => 'sequences associated with this clone',
+        data		=> @sequences ? \@sequences : undef,
+    }
+}
+
+=head3 genomic_positions
+
+This method will return a data structure containing
+genomic positions for features on this clone.
+
+=over
+
+=item PERL API
+
+ $data = $model->genomic_positions();
+
+=item REST API
+
+B<Request Method>
+
+GET
+
+B<Requires Authentication>
+
+No
+
+B<Parameters>
+
+A clone id (eg JC8)
+
+B<Returns>
+
+=over 4
+
+=item *
+
+200 OK and JSON, HTML, or XML
+
+=item *
+
+404 Not Found
+
+=back
+
+B<Request example>
+
+curl -H content-type:application/json http://api.wormbase.org/rest/field/clone/JC8/genomic_positions
+
+B<Response example>
+
+<div class="response-example"></div>
+
+=back
+
+=cut
+sub genomic_positions {
+    my ($self) = @_;
     
     # this part looks suspiciously like it overlaps with _build__segments below...
-    my %sequences;
+    my @positions;
     foreach my $seq (@{$self ~~ '@Sequence'}) {
         my $chrom = $self->_pack_obj($seq->Interpolated_map_position);
         my $map   = $seq->Interpolated_map_position(2);
-	
+    
         my ($ref, $start, $end);
         if (my ($coords) = $self->_seq2coords($seq)) {
             ($ref, $start, $end) = @$coords;
         }
-	
-        $sequences{$seq} = $self->_pack_obj(
-            $seq, undef, # $seq and resolve label within _pack_obj
-            start => $start,
-            end   => $end,
-            ref   => $ref,
-            chrom => $chrom,
-            map   => $map && "$map",
-	    );
+        my $label    = $self->_format_coordinates(ref => $ref, start => $start, stop => $end);
+        my $position = $self->_format_coordinates(ref => $ref, start => $start, stop => $end, pad_for_gbrowse => 1);
+
+        push(@positions, {
+            label      => $position,
+            id         => $self->_parsed_species . '/?name=' . $position, # looks like a template thing...
+            class      => 'genomic_location',
+            pos_string => $position, # independent from label -- label may change in the future
+        });
     }
     
     return {
-        description => 'sequences associated with this clone',
-        data		=> %sequences ? \%sequences : undef,
+        description => 'genomic positions of the sequences associated with this clone',
+        data        => @positions ? \@positions : undef,
     }
 }
 
@@ -786,7 +846,14 @@ sub _build_tracks {
 
 sub _build__segments {
     my ($self) = @_;
-    return [$self->gff_dsn->segment(-class => 'region', -name => $self->object)];
+    # TH: I don't think it's correct to use the method "region" here.  
+    # It needs to be either Sequence or Clone.
+    # return [$self->gff_dsn->segment(-class => 'region', -name => $self->object)];
+
+    my $dsn = $self->gff_dsn;
+    my $object = $self->object;
+    my @segs = $dsn->segment(-name => "$object");
+    return \@segs;
 }
 
 

@@ -1,17 +1,10 @@
-<h2 style="float:left">[% fields.name.data.label %]</h2>
+<h2>[% fields.name.data.label %]</h2>
 
 [%
 
-WRAPPER highlight_box;
- 
-   WRAPPER $field_block title="WormBase ID";
-           fields.name.data.id;
-   END;
+WRAPPER highlight_box; END;
 
-END;
-
-
-'<div style="clear:left;padding:0.5em 0;">';
+'<div class="description">';
    fields.summary.data;
 '</div>';
 
@@ -19,7 +12,7 @@ WRAPPER $field_block title='Methods' key='methods';
    FOREACH method IN fields.methods.data.sort;
    	  WRAPPER $field_block title=method.replace('_', ' ');
 	  	 IF fields.methods.data.$method.pairs.0.value;  # it's a packed obj
-		 	link_objects(fields.methods.data.$method);
+		 	tags2link(fields.methods.data.$method);
 		 ELSE;
 			fields.methods.data.$method.sort.join(', ') || 'No extra data';
 		 END;
@@ -27,12 +20,11 @@ WRAPPER $field_block title='Methods' key='methods';
     END;
 END;
 
-
 WRAPPER $field_block title='Type Of Change' key='type_of_change';
    FOREACH reg_type IN fields.type_of_change.data.sort;
    	  # WRAPPER $field_block title=reg_type.replace('_', ' ');
 	  reg_type.replace('_',' ');
-	  '<br />' _ link_objects(fields.type_of_change.data.$reg_type);
+	  '<br />' _ tags2link(fields.type_of_change.data.$reg_type);
 	  #END;
     END;
 END;
@@ -41,7 +33,7 @@ WRAPPER $field_block title='Regulated By' key='regulators';
    FOREACH regulator IN fields.regulators.data.sort;
    	WRAPPER $field_block title=regulator.replace('_',' ');
 	  	 IF fields.regulators.data.$regulator.pairs.0.value; # it's a packed obj
-		    link_objects(fields.regulators.data.$regulator);
+		    tags2link(fields.regulators.data.$regulator);
 		 ELSE; # it's just text
 		 	fields.regulators.data.$regulator.sort.join(', ');
 		 END;
@@ -49,60 +41,42 @@ WRAPPER $field_block title='Regulated By' key='regulators';
     END;
 END;
 
-
 WRAPPER $field_block title='Regulates' key='';
 	FOREACH regulation IN fields.regulates.data;
 
-	    regulation_type = regulation.regulation_type;
+	    '<b>' _ regulation.regulation_type _ ":</b><br />";
+	    
+	    FOREACH condition_type IN regulation.conditions;
+		# Print out a semi-prose description.
+		tag2link(regulation.target);
 
-	    # Make the type read in English.
-	    IF regulation_type == 'Positive_regulate';
-	       regulation_type = 'positively regulates';
-	    ELSIF regulation_type == 'Negative_regulate';
-	       regulation_type = 'negatively regulates';
-	    ELSE;
-	       regulation_rype = 'does not regulate';
-            END;     
-
-	    target_type     = regulation.target_type;
-	    target          = regulation.target;
-
-	    # Print out a semi-prose description.
-	    regulation_type _ " " _ tag2link(target);
-
-	    FOREACH condition_type IN regulation.conditions;	       
   	        value = condition_type.value;
+		cond_type = FILTER lower; condition_type.key; END;
+		cond_type = cond_type.replace('_', ' ');
 		IF value;
-	           ' in ' _ link_objects(value,', ') _ '<br >';
+	            " in $cond_type: ";
+		    IF condition_type.key == 'Subcellular_localization';
+			FOREACH val IN value;
+			    val;
+			    UNLESS loop.last; ', '; END;
+			END;
+		    ELSE;
+			tags2link(value,', ');
+		    END;
 		END;
-            END;	
+		'<br >';
+            END;
         END;
 
        IF fields.reference_expression_pattern.data;
-          "See the " _ link_objects(fields.reference_expression_pattern.data)  _ " for a reference of where this gene regulation event is thought to occur.";
+          "See the " _ tags2link(fields.reference_expression_pattern.data)  _ " for a reference of where this gene regulation event is thought to occur.";
        END;
-
-END;	    
-
-
-
-
-WRAPPER $field_block title='Targets' key='targets';
-
-    FOREACH target_type IN fields.targets.data.sort;
-   	  WRAPPER $field_block title=target_type.replace('_', ' ') key="$target_type";
-	  	 link_objects(fields.targets.data.$target_type);
-	  END;
-   END;
-
-
 END;
 
 WRAPPER $field_block title='Molecule Regulators' key='molecule_regulators';
-   link_objects(fields.molecule_regulators.data);
+   tags2link(fields.molecule_regulators.data);
 END;
 
 remarks;
-
 
 %]

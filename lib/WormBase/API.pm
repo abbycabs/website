@@ -176,7 +176,8 @@ sub _build__tools {
         $tools{$tool}  = $class->new({
             pre_compile => $self->tool->{$tool},
             log         => $self->log,
-            search 	    => $self->xapian,
+	    search 	=> $self->xapian,
+            _api        => $self,
             dsn         => $self->_services, 
             tmp_base    => $self->tmp_base,
             # ($tool eq 'aligner' ? (search => $self->search) : ()),
@@ -198,10 +199,13 @@ sub fetch {
     my ($object, $class, $aceclass, $name, $nowrap)
         = @{$args}{qw(object class aceclass name nowrap)};
 
+    $name =~ s/\?/\\\?/g; #escape question mark before fetch
+
     if ($object) {
         $class = $self->modelmap->ACE2WB_MAP->{fullclass}->{$object->class};
         $self->log->debug("[API::fetch()]", " object $object, inferred WB class $class");
     }
+
     else {
         my $service_dbh = $self->_services->{$self->default_datasource}->dbh || return 0;
 
@@ -231,17 +235,21 @@ sub fetch {
             $name = $var_name->Public_name_for || $var_name->Other_name_for || $name;
             $self->log->debug("[API::fetch()]", " Variation hack, $orig_name, found $name");
         }
-
+ 
         # Try fetching an object (from the default data source)
 		if (ref $aceclass eq 'ARRAY') { # multiple Ace classes
 			foreach my $ace (@$aceclass) {
-                $self->log->debug("[API::fetch()]",
+				$self->log->debug("[API::fetch()]",
                                   " attempt to fetch $name of ace class $ace");
 				last if $object = $service_dbh->fetch(class => $ace, name => $name);
 			}
+		}elsif ($aceclass eq 'Disease' ) {
+		     $self->log->debug("[API::fetch()]",
+                                  " attempt to fetch $name of ace class $aceclass");
+ 		     $object = $self->xapian->_get_tag_info($self, $name, lc($aceclass),1);       
 		}
 		else { # assume a single Ace class
-            $self->log->debug("[API::fetch()]",
+		    $self->log->debug("[API::fetch()]",
                               " attempt to fetch $name of ace class $aceclass");
 			$object = $service_dbh->fetch(class => $aceclass, name => $name);
 		}
@@ -296,7 +304,6 @@ sub wrap {
 
         $class = $PREFIX . $class unless $class =~ $PACKRE;
 
-        # $class should already be loaded by ModelMap
         return $class->new(
             object      => $object,
             log         => $self->log,

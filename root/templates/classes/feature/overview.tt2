@@ -1,26 +1,20 @@
-<h2 style="float:left">[% tag2link(fields.name.data) %]</h2>
+<h2>[% fields.name.data.label %]</h2>
 
 
 [%
 
 WRAPPER highlight_box;
 
-  taxonomy;
-
-  WRAPPER $field_block title="WormBase ID";
-       fields.name.data.id;
-  END;
 
 END;
 
-
-WRAPPER $field_block title='Description' key="description";
+'<div class="description">';
    markup(fields.description.data);
-END;
+'</div>';
 
 
 WRAPPER $field_block title='Flanking sequence' key='flanking_sequences';
-      tag2link(fields.flanking_sequences.data.seq) _ ": <pre>5' " _ fields.flanking_sequences.data.flanks.join('-' _ fields.name.data.label _ '-') _ " 3'</pre>";
+      tag2link(fields.flanking_sequences.data.seq) _ ": <pre>5' " _ fields.flanking_sequences.data.flanks.join('-<b>' _ fields.name.data.label _ '</b>-') _ " 3'</pre>";
 END;
 
 
@@ -52,7 +46,7 @@ WRAPPER $field_block title="Defined by" key="defined_by";
 		key = 'defined_by');
 END;
 
-
-remarks(no_toggle=1);
-
+WRAPPER $field_block title="" key="remarks";
+    remarks(no_toggle=1);
+END;
 %]

@@ -23,7 +23,7 @@ requires 'Catalyst::Controller::FormBuilder';
 requires 'Catalyst::Controller::CGIBin';
 requires 'Catalyst::Model::Adaptor';
 requires 'Catalyst::Model::Xapian::Result';
-requires 'Catalyst::Log::Log4perl';
+#requires 'Catalyst::Log::Log4perl';
 requires 'Catalyst::Plugin::Authentication';          
 requires 'Catalyst::Plugin::Authorization::Roles';          
 requires 'Catalyst::Plugin::Cache';                # Cache interface
@@ -40,7 +40,7 @@ requires 'Catalyst::Plugin::StackTrace';
 requires 'Catalyst::Plugin::Static::Simple';
 requires 'Catalyst::View::JSON';
 requires 'Catalyst::View::Email';
-requires 'Catalyst::View::GD';
+#requires 'Catalyst::View::GD';
 
 # Application dependencies
 requires 'Ace'                                    => '1.92';     # Good 'ole AcePerl.
@@ -59,6 +59,7 @@ requires 'CHI::Driver::Memcached::libmemcached';                 # Cache (in mem
 requires 'CHI::Driver::File';                                    # Cache (on disk)
 requires 'Class::MOP';                                           # => '1.12';
 requires 'Data::Dump';                                           #
+requires 'Data::GUID';											 #
 requires 'Data::OptList';                                        #
 requires 'DBI';                                                  #
 requires 'DBD::mysql';                                           #
@@ -70,12 +71,14 @@ requires 'HTML::Entities';                                       #
 requires 'Facebook::Graph';                                      #
 requires 'GD';                                                   #
 requires 'GD::SVG';                                              #
-#requires 'GO::Parser';                                           #
-#requires 'GO::Utils';                                            #
-#requires 'go-db-perl';                                           #
+requires 'Hash::Merge';
+#requires 'GO::Parser';                                          #
+#requires 'GO::Utils';                                           #
+#requires 'go-db-perl';                                          #
 requires 'JSON';                                                 #
 requires 'List::MoreUtils';                                      #
 requires 'Log::Log4perl';                                        #
+requires 'Log::Log4perl::Catalyst';                              #
 requires 'Math::BigInt::GMP';   # will need to install gmp.h header file first(on Debian/Ubuntu is the libgmp3-dev package)
 requires 'Memcached::libmemcached';                              #
 requires 'Module::Install';                                      #
@@ -104,7 +107,7 @@ requires 'Template::Plugin::Time::Duration';                     #
 requires 'Test::YAML::Valid';                                    #
 requires 'Test::Pod::Coverage';                                  #
 requires 'Text::Glob';                                           #
-requires 'Text::WikiText';                                       #
+requires 'Text::MultiMarkdown';                                       #
 requires 'Time::Duration';                                       #
 requires 'WWW::Mechanize';                                       #
 requires 'XML::Simple';                                          #
@@ -114,6 +117,7 @@ requires 'YAML';                                                 #
 # The PSGI/Plack/Starman stack
 requires 'Plack::Test::Adopt::Catalyst';                         #
 requires 'Plack::App::Proxy';                                    #
+requires 'Plack::Middleware::ServerStatus::Lite';
 requires 'Task::Plack';                                          #
 requires 'Catalyst::Controller::Metal';                          #
 #requires 'Catalyst::Engine::PSGI';                               #

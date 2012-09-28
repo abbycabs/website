@@ -24,12 +24,10 @@
   var WB = (function(){
     var timer,
         notifyTimer,
-        colTimer,
         cur_search_type = 'all',
+        cur_search_species_type = '',
         reloadLayout = 0, //keeps track of whether or not to reload the layout on hash change
-        loadcount = 0,
-        plugins = new Array(),
-        loading = false;
+        loadcount = 0;
     
     function init(){
       var pageInfo = $jq("#header").data("page"),
@@ -88,14 +86,14 @@
           var navItem = $jq(this);
           $jq("div.columns>ul").hide();
           if(timer){
-            navItem.siblings("li").children("ul.dropdown").hide();
+            navItem.siblings("li").children("ul.wb-dropdown").hide();
             navItem.siblings("li").children("a").removeClass("hover");
-            navItem.children("ul.dropdown").find("a").removeClass("hover");
-            navItem.children("ul.dropdown").find("ul.dropdown").hide();
+            navItem.children("ul.wb-dropdown").find("a").removeClass("hover");
+            navItem.children("ul.wb-dropdown").find("ul.wb-dropdown").hide();
             clearTimeout(timer);
             timer = undefined;
           }
-          navItem.children("ul.dropdown").show();
+          navItem.children("ul.wb-dropdown").show();
           navItem.children("a").addClass("hover");
         }, function () {
           var toHide = $jq(this);
@@ -104,7 +102,7 @@
             timer = undefined;
           }
           timer = setTimeout(function() {
-                toHide.children("ul.dropdown").hide();
+                toHide.children("ul.wb-dropdown").hide();
                 toHide.children("a").removeClass("hover");
               }, 300)
         });
@@ -169,27 +167,32 @@
       }
       
       
-      colDropdown.find("a, div.columns div.ui-icon, div.columns>ul>li>a").click(function() {
-        $jq("div.columns>ul").toggle();
-      });
-      
-      colDropdown.children("ul").children("li").hover(
-        function(){
-          if(colTimer){ 
-            clearTimeout(colTimer);
-            colTimer = undefined;
+      colDropdown.hover(function () {
+          if(timer){
+            $jq("#nav-bar").find("ul li .hover").removeClass("hover");
+            $jq("#nav-bar").find("ul.wb-dropdown").hide();
+            clearTimeout(timer);
+            timer = undefined;
           }
-          $jq(this).children("ul").show();
-        },
-        function(){
-          var layout = $jq(this).children("ul");
-          if(colTimer){ 
-            clearTimeout(colTimer);
-            colTimer = undefined;
+          colDropdown.children("ul").show();
+        }, function () {
+          if(timer){
+            clearTimeout(timer);
+            timer = undefined;
           }
-          colTimer = setTimeout(function(){layout.hide();}, 500);
+          if(colDropdown.find("#layout-input:focus").size() == 0){
+            timer = setTimeout(function() {
+                  colDropdown.children("ul").hide();
+                }, 300)
+          }else{
+            colDropdown.find("#layout-input").blur(function(){
+              timer = setTimeout(function() {
+                  colDropdown.children("ul").hide();
+                }, 600)
+            });
+          }
         });
-      
+
       $jq("#nav-min").click(function() {
         var nav = $jq(".navigation-min").add("#navigation"),
             ptitle = $jq("#page-title"),
@@ -197,11 +200,9 @@
             msg = "open sidebar",
             marginLeft = '-1em';
         if(w == 0){ w = '12em'; msg = "close sidebar"; marginLeft = 175; }else { w = 0;}
-        nav.animate({width: w}).show();
+        nav.animate({width: w}).show().children("#title").children("div").toggle();
         ptitle.animate({marginLeft: marginLeft}).show();
-        nav.children("#title").children("div").toggle();
-        $jq(this).attr("title", msg);
-        $jq(this).children("#nav-min-icon").toggleClass("ui-icon-triangle-1-w").toggleClass("ui-icon-triangle-1-e");
+        $jq(this).attr("title", msg).children("#nav-min-icon").toggleClass("ui-icon-triangle-1-w").toggleClass("ui-icon-triangle-1-e");
       });
       
       // Should be a user supplied site-wide option for this.
@@ -293,10 +294,10 @@
       }else if(layout = widgetHolder.data("layout")){
         Layout.resetPageLayout(layout);
       }else{
-        Layout.openAllWidgets(true);
+        Layout.openAllWidgets();
       }
       
-      if(listLayouts.size()>0){ajaxGet(listLayouts, "/rest/layout_list/" + listLayouts.attr("type"));}
+//       if(listLayouts.children().size()==0){ajaxGet(listLayouts, "/rest/layout_list/"  + $jq(".list-layouts").data("class") + "?section=" + $jq(".list-layouts").data("section"));}
       
       // used in sidebar view, to open and close widgets when selected
       widgets.find(".module-load, .module-close").click(function() {
@@ -408,46 +409,31 @@
             var tog = $jq(this);
             tog.toggleClass("active").next().slideToggle("fast", function(){
                 if($jq.colorbox){ $jq.colorbox.resize(); }
+                Scrolling.sidebarMove();
               });
             if(tog.hasClass("load-toggle")){
               ajaxGet(tog.next(), tog.attr("href"));
               tog.removeClass("load-toggle");
             }
+            tog.children(".ui-icon").toggleClass("ui-icon-triangle-1-e ui-icon-triangle-1-s");
             return false;
       });
-        
-      content.delegate(".tooltip", 'mouseover', function(){
-          var tip = $jq(this);
-          getCluetip(function(){
-            tip.cluetip({
-              activation: 'click',
-              sticky: true, 
-              cluetipClass: 'jtip',
-              dropShadow: false, 
-              closePosition: 'title',
-              arrows: true, 
-              hoverIntent: false,
-              });
-            });
-      });
-      
-      content.delegate(".tip-simple", 'mouseover', function(){ 
-        if(!($jq(this).children("div.tip-elem").show().children('span:not(".ui-icon")').text($jq(this).attr("tip")).size())){
-          var tip = $jq('<div class="tip-elem tip ui-corner-all" style="display:block"><span>' + $jq(this).attr("tip") + '</span><span class="tip-elem ui-icon ui-icon-triangle-1-s"></span></div>');
-          tip.appendTo($jq(this)).show();
-        }
-      });
-      content.delegate(".tip-simple", 'mouseout', function(){ 
-        $jq(this).children("div.tip-elem").hide();
+
+      content.delegate(".evidence", 'click', function(){
+        var ev = $jq(this);
+        ev.children(".ev-more").toggleClass('open').children('.ui-icon').toggleClass('ui-icon-triangle-1-s ui-icon-triangle-1-n');
+        ev.children(".ev").toggle('fast');
       });
       
       content.delegate(".slink", 'mouseover', function(){
           var slink = $jq(this);
-          getColorbox(function(){
+          Plugin.getPlugin("colorbox", function(){
             slink.colorbox({data: slink.attr("href"), 
-                            width: "750px", 
+                            width: "800px", 
                             height: "550px",
-                            title: function(){ return slink.prev().text() + " sequence"; }});
+                            scrolling: false,
+                           onComplete: function() {$jq.colorbox.resize(); },
+                            title: function(){ return slink.next().text() + " " + slink.data("class"); }});
           });
       });
       
@@ -464,16 +450,35 @@
         });
         return false;
       });
+      
+      $jq("body").delegate(".generate-file-download", 'click', function(e){
+          var filename = $jq(this).find("#filename").text(),
+              content = $jq(this).find("#content").text();
+          Plugin.getPlugin("generateFile", function(){
+          $jq.generateFile({
+              filename    : filename,
+              content     : content,
+              script      : '/rest/download'
+          });
+        });
+      });     
+      
     }
     
     function moduleMin(button, hover, direction, callback) {
       var module = $jq("#" + button.attr("wname") + "-content");
+      
       if (direction && (button.attr("title") != direction) ){ if(callback){ callback()} return; }
       module.slideToggle("fast", function(){Scrolling.sidebarMove(); if(callback){ callback()}});
       button.toggleClass("ui-icon-triangle-1-s ui-icon-triangle-1-e").closest(".widget-container").toggleClass("minimized");
       if(hover)
         button.toggleClass("ui-icon-circle-triangle-e ui-icon-circle-triangle-s");
       (button.attr("title") != "maximize") ? button.attr("title", "maximize").addClass("show") : button.attr("title", "minimize").removeClass("show");
+      
+      module.find(".cyto_panel").each(function(index, domEle){
+		  domEle.selectedIndex = 0;
+	    });
+      
     }
     
 
@@ -504,7 +509,7 @@
      var systemMessage = $jq(".system-message"),
          notifications = $jq("#notifications");
       if(action == 'show'){
-        systemMessage.show().css("display", "block").animate({height:"20px"}, 'slow');
+//         systemMessage.show().css("display", "block").animate({height:"20px"}, 'slow');
         notifications.css("top", "20px");
         Scrolling.set_system_message(20); 
       }else{
@@ -530,9 +535,11 @@
           ajaxPanel.html(data);
         },
         error:function(xhr, textStatus, thrownError){
-          var error = $jq(xhr.responseText);
-          ajaxPanel.html('<p class="error"><strong>Oops!</strong> Try that again in a few moments.</p>');
-          ajaxPanel.append(error.find(".error-message-technical").html());
+          var error = $jq(xhr.responseText).find(".error-message-technical").html() || '';
+          ajaxPanel.html('<div class="ui-state-error ui-corner-all"><p><strong>Sorry!</strong> An error has occured.</p>'
+                  + '<p><a href="/tools/support?url=' + location.pathname 
+                  + (error ? '&msg=' + encodeURIComponent(error.trim()) : '')
+                  + '">Let us know</a></p><p>' + error + '</p></div>');
         },
         complete:function(XMLHttpRequest, textStatus){
           if(callback){ callback(); }
@@ -549,11 +556,11 @@
             ajaxGet($jq("#operator-box"), "/rest/livechat", 0);
             opLoaded = true;
           }
-          (opBox.hasClass("minimize")) ? opBox.animate({width:"9em"}) : opBox.animate({width:"1.5em"});
-          opBox.toggleClass("minimize").children().toggle();
+          (opBox.hasClass("minimize")) ? opBox.animate({width:"9em"}).children().show() : opBox.animate({width:"1.5em"}).children().hide();
+          opBox.toggleClass("minimize");
         });
         
-        $jq('#operator').click(function() { 
+        $jq('.operator').click(function() { 
           if($jq(this).attr("rel")) {
             $jq.post("/rest/livechat?open=1",function() {
               location.href="/tools/operator";
@@ -573,7 +580,7 @@
         $jq("#issue-box").click(function(){
           var isBox = $jq(this);
           isBox.toggleClass("minimize").children().toggle();
-          isBox.animate({width: (isBox.hasClass("minimize")) ? "1em" : "12em"})
+          isBox.animate({width: (isBox.hasClass("minimize")) ? "1em" : "14em"})
         });
     }
     
@@ -581,15 +588,15 @@
     var area = $jq(selector);
       
     if(area.attr("value") != ""){
-      area.siblings().fadeOut();
+      area.siblings(".holder").fadeOut();
     }
     area.focus(function(){
-      $jq(this).siblings().fadeOut();
+      $jq(this).siblings(".holder").fadeOut();
     });
 
     area.blur(function(){
       if($jq(this).attr("value") == ""){
-        $jq(this).siblings().fadeIn();
+        $jq(this).siblings(".holder").fadeIn();
       }
     });
   }
@@ -652,21 +659,21 @@
 
     
     function search(box) {
-        if(!box){ box = "Search"; }else{ cur_search_type = 'all'; } 
+        if(!box){ box = "Search"; }else{ cur_search_type = cur_search_type || 'all'; } 
         var f = $jq("#" + box).attr("value");
         if(f == "search..." || !f){
-          f = "*";
+          f = "";
         }
 
         f = encodeURIComponent(f.trim());
         f = f.replace('%26', '&');
         f = f.replace('%2F', '/');
 
-        location.href = '/search/' + cur_search_type + '/' + f;
+        location.href = '/search/' + cur_search_type + '/' + f + (cur_search_species_type ? '?species=' + cur_search_species_type : '');
     }
 
-    function search_change(new_search, focus) {
-      if((!new_search) || (new_search == "home") || (new_search == "me") || (new_search == "bench")){ new_search = "gene"; }
+    function search_change(new_search) {
+      if(!new_search) { new_search = 'gene';}
       cur_search_type = new_search;
       if(new_search == "all"){
       new_search = "for anything";
@@ -678,7 +685,19 @@
         new_search = search_for + " " + new_search.replace(/[_]/, ' ');
       }
       
-      $jq("#current-search").text(new_search);
+      $jq(".current-search").text(new_search);
+    }
+    
+    
+    function search_species_change(new_search) {
+      cur_search_species_type = new_search;
+      if(new_search == "all"){
+      new_search = "all species";
+      }else{
+        new_search = new_search.charAt(0).toUpperCase() + new_search.slice(1);
+        new_search = new_search.replace(/[_]/, '. ');
+      }
+      $jq(".current-species-search").text(new_search);
     }
 
 
@@ -686,7 +705,7 @@
   function checkSearch(div){
     var results = div.find("#results"),
         searchData = (results.size() > 0) ? results.data("search") : undefined;
-    if(!searchData){ return; }
+    if(!searchData){ formatExpand(results); return; }
     SearchResult(searchData['query'], searchData["type"], searchData["species"], searchData["widget"], searchData["nostar"], searchData["count"], div);  
   }
   
@@ -727,7 +746,7 @@
       formatExpand(div);
 
       if(queryList.length == 0) { return; }
-      getHighlight(function(){
+      Plugin.getPlugin("highlight", function(){
         for (var i=0; i<queryList.length; i++){
           if(queryList[i]) { div.highlight(queryList[i]); }
         }
@@ -802,11 +821,13 @@
     return undefined;
   }
   
-  function allResults(type, species, query){
+  function allResults(type, species, query, widget){
     var url = "/search/" + type + "/" + query + "/?inline=1",
         allSearch = $jq("#all-search-results");
-    Scrolling.sidebarInit();
-    allSearch.empty(); 
+    if(!widget){
+      Scrolling.sidebarInit();
+      search_change(type);
+    }
     if(species) { url = url + "&species=" + species;} 
     ajaxGet(allSearch, url, undefined, function(){
       checkSearch(allSearch);
@@ -861,10 +882,10 @@
         return false;
     }
     
-    function reloadWidget(widget_name, noLoad){
+    function reloadWidget(widget_name, noLoad, url){
         var con = $jq("#" + widget_name + "-content");
         if(con.text().length > 4)
-          ajaxGet(con, $jq("#nav-" + widget_name).attr("href"), noLoad, function(){ checkSearch(con); });
+          ajaxGet(con, url || $jq("#nav-" + widget_name).attr("href"), noLoad, function(){ checkSearch(con); });
     }
     
       
@@ -891,6 +912,8 @@
 var Layout = (function(){
   var sColumns = false,
       ref = $jq("#references-content"),
+      wHolder = $jq("#widget-holder"),
+      maxWidth = (location.pathname == '/' || location.pathname == '/me') ? 900 : 1300; //home page? allow narrower columns
     //get an ordered list of all the widgets as they appear in the sidebar.
     //only generate once, save for future
       widgetList = this.wl || (function() {
@@ -904,21 +927,28 @@ var Layout = (function(){
         })();
       
     function resize(){
-      if(sColumns != (sColumns = (document.documentElement.clientWidth < 800)))
+      if(sColumns != (sColumns = (document.documentElement.clientWidth < maxWidth))){
         sColumns ? columns(100, 100) : readHash();
+        if(multCol = $jq("#column-dropdown").find(".multCol")) multCol.toggleClass("ui-state-disabled");
+      }
+      if ((maxWidth > 1000) && 
+          wHolder.children(".sortable").hasClass("table-columns") && 
+        ((wHolder.children(".left").width() + wHolder.children(".right").width()) > 
+        (wHolder.outerWidth() + 150)))
+        columns(100, 100);
       if(ref && (ref.hasClass("widget-narrow") != (ref.innerWidth() < 845)))
         ref.toggleClass("widget-narrow");
     }
     
     function columns(leftWidth, rightWidth, noUpdate){
-      var sortable = $jq("#widget-holder").children(".sortable"),
-          tWidth = $jq("#widget-holder").innerWidth(),
+      var sortable = wHolder.children(".sortable"),
+          tWidth = wHolder.innerWidth(),
           leftWidth = sColumns ? 100 : leftWidth;
       if(leftWidth>95){
-        sortable.removeClass('table-columns').addClass('one-column');
+        wHolder.removeClass('table-columns').addClass('one-column');
         rightWidth = leftWidth = 100;
       }else{
-        sortable.addClass('table-columns').removeClass('one-column');
+        wHolder.addClass('table-columns').removeClass('one-column');
       }
       sortable.filter(".left").css("width",leftWidth + "%");
       sortable.filter(".right").css("width",rightWidth + "%");
@@ -927,13 +957,13 @@ var Layout = (function(){
     }
 
     function deleteLayout(layout){
-      var $class = $jq("#widget-holder").attr("wclass");
+      var $class = wHolder.attr("wclass");
       $jq.get("/rest/layout/" + $class + "/" + layout + "?delete=1");
       $jq("div.columns ul div li#layout-" + layout).remove();
     }
 
     function setLayout(layout){
-      var $class = $jq("#widget-holder").attr("wclass");
+      var $class = wHolder.attr("wclass");
       $jq.get("/rest/layout/" + $class + "/" + layout, function(data) {
           var nodeList = data.childNodes[0].childNodes,
               len = nodeList.length;
@@ -947,7 +977,7 @@ var Layout = (function(){
     }
     
     function resetPageLayout(layout){
-      layout = layout || $jq("#widget-holder").data("layout");
+      layout = layout || wHolder.data("layout");
       if(layout['hash']){
           location.hash = layout['hash'];
       }else{
@@ -960,13 +990,20 @@ var Layout = (function(){
 
     function newLayout(layout){
       updateLayout(layout, undefined, function() {
-        $jq(".list-layouts").load("/rest/layout_list/" + $jq(".list-layouts").attr("type"), function(response, status, xhr) {
+        $jq(".list-layouts").load("/rest/layout_list/" + $jq(".list-layouts").data("class") + "?section=" + $jq(".list-layouts").data("section"), function(response, status, xhr) {
             if (status == "error") {
                 var msg = "Sorry but there was an error: ";
                 $jq(".list-layouts").html(msg + xhr.status + " " + xhr.statusText);
               }
             });
           });
+      if(timer){
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      timer = setTimeout(function() {
+          $jq("#column-dropdown").children("ul").hide();
+       }, 700)
       return false;
     }
     
@@ -984,7 +1021,8 @@ var Layout = (function(){
     function readHash() {
       if(reloadLayout == 0){
         var hash = location.hash,
-            h = decodeURI(hash).match(/^[#](.*)$/)[1].split('-');
+            arr,
+            h = (arr = decodeURI(hash).match(/^[#](.*)$/)) ? arr[1].split('-') : undefined;
         if(!h){ return; }
         
         var l = h[0],
@@ -1006,11 +1044,11 @@ var Layout = (function(){
         return widgetList.list.indexOf(widget_name).toString(36);
     }
    
-    function openAllWidgets(noTools){
+    function openAllWidgets(){
       var hash = "",
-          tools = noTools ? $jq("#navigation").find(".tools").size() : 0;
+          wlen = $jq("#navigation").find("li.module-load:not(.tools,.me,.toggle)").size();
       if(widgetList.list.length == 0){ return; }
-      for(i=0; i<(widgetList.list.length - 2 - tools); i++){
+      for(i=0; i<wlen; i++){
         hash = hash + (i.toString(36));
       }
       window.location.hash = hash + "--10";
@@ -1023,9 +1061,8 @@ var Layout = (function(){
     }
 
     function updateLayout(layout, hash, callback){
-      var holder =  $jq("#widget-holder"),
-          $class = holder.attr("wclass"),
-          lstring = hash || readLayout(holder),
+      var $class = wHolder.attr("wclass"),
+          lstring = hash || readLayout(wHolder),
           l = ((typeof layout) == 'string') ? escape(layout) : 'default';
       $jq.post("/rest/layout/" + $class + "/" + l, { 'lstring':lstring }, function(){
       Layout.resize();
@@ -1095,7 +1132,7 @@ var Layout = (function(){
       hiddenContainer = $jq('<span id="breadcrumbs-hide"></span>');
       hiddenContainer.append(hidden).children().after(' &raquo; ');
 
-      bc.append('<span id="breadcrumbs-expand" class="tip-simple ui-icon-large ui-icon-triangle-1-e " tip="exapand"></span>').append(hiddenContainer).append(shown);
+      bc.append('<span id="breadcrumbs-expand" class="ui-icon-large ui-icon-triangle-1-e tl" tip="exapand"></span>').append(hiddenContainer).append(shown);
       bc.children(':last').addClass("page-title").before(" &raquo; ");
     
       expand = $jq("#breadcrumbs-expand");
@@ -1132,7 +1169,8 @@ var Layout = (function(){
       readHash: readHash,
       getLeftWidth: getLeftWidth,
       updateLayout: updateLayout,
-      Breadcrumbs: Breadcrumbs
+      Breadcrumbs: Breadcrumbs,
+      newLayout: newLayout
   }
 })();
 
@@ -1153,7 +1191,7 @@ var Scrolling = (function(){
                  
   function resetSidebar(){
     static = 0;
-    $jq("#navigation").stop().css('position', 'relative').css('top', 0);
+    sidebar.stop().css('position', 'relative').css('top', 0);
   }
   
   function goToAnchor(anchor){
@@ -1186,6 +1224,8 @@ var Scrolling = (function(){
   }
   
   function sidebarMove() {
+      if(!sidebar)
+        return;
       if(sidebar.offset()){
         var objSmallerThanWindow = sidebar.outerHeight() < ($window.height() - system_message),
             scrollTop = $window.scrollTop(),
@@ -1197,26 +1237,29 @@ var Scrolling = (function(){
         }
         if (objSmallerThanWindow){
           if(static==0){
-            if ((scrollTop > offset) && (scrollTop < maxScroll)) {
+            if ((scrollTop >= offset) && (scrollTop <= maxScroll)){
                 sidebar.stop().css('position', 'fixed').css('top', system_message);
-                static++;
+                static = 1;
             }else if(scrollTop > maxScroll){
                 sidebar.stop().css('position', 'fixed').css('top', system_message - (scrollTop - maxScroll));
+            }else{
+                resetSidebar();
             }
           }else{
             if (scrollTop < offset) {
-                sidebar.stop().css('position', 'relative').css('top', 0);
-                static--;
+                resetSidebar();
             }else if(scrollTop > maxScroll){
-                sidebar.stop().css('top', system_message - (scrollTop - maxScroll));
-                static--;
+                sidebar.stop().css('position', 'fixed').css('top', system_message - (scrollTop - maxScroll));
+                static = 0;
                 if(scrollingDown == 1){body.stop(); scrollingDown = 0; }
-            }
+            } 
           }
-        }else if(count==0 && (titles = sidebar.find(".ui-icon-triangle-1-s"))){ 
-          //close lowest section. delay for animation. 
+        }else if(count==0 && (titles = sidebar.find(".ui-icon-triangle-1-s:not(.pcontent)"))){ 
           count++; //Add counting semaphore to lock
+          //close lowest section. delay for animation. 
           titles.last().parent().click().delay(250).queue(function(){ count--; Scrolling.sidebarMove();});
+        }else{
+          resetSidebar();
         }
       } 
     }
@@ -1225,10 +1268,6 @@ var Scrolling = (function(){
     sidebar   = $jq("#navigation");
     offset = sidebar.offset().top;
     widgetHolder = $jq("#widget-holder");
-        
-    sidebar.find(".title").click(function(){
-      $jq(this).children(".ui-icon").toggleClass("ui-icon-triangle-1-s").toggleClass("ui-icon-triangle-1-e");
-    }); 
     
     $window.scroll(function() {
       Scrolling.sidebarMove();
@@ -1368,19 +1407,26 @@ var Scrolling = (function(){
         var rel= is.attr("rel"),
             url = is.attr("url"),
             feed = is.closest('#issues-new'),
-            is_private = feed.find("#isprivate:checked").size();
+            name = feed.find("#name"),
+            dc = feed.find("#desc-content"),
+            email = feed.find("#email");
+        if (!validate_fields(email, name))
+          return;
         $jq.ajax({
           type: 'POST',
           url: rel,
           data: {title:feed.find("#issue-title option:selected").val(), 
-                content: feed.find("#issue-content").val(), 
-                url: url || issue.url,
-                isprivate:is_private},
+                content: feed.find("#issue-content").val() + (dc.length > 0 ? '<br />What were you doing?: <br />&nbsp;&nbsp;' + dc.val() : ''), 
+                name: name.val(),
+                email: email.val(),
+                url: url || issue.url},
           success: function(data){
                 if(data==0) {
                    alert("The email address has already been registered! Please sign in."); 
                 }else {
-                  window.location = url || issue.url;
+                  var content = $jq("#content");
+                  content.children().not("#spacer").remove();
+                  content.prepend(data);
                 }
               },
           error: function(request,status,error) {
@@ -1515,7 +1561,7 @@ var Scrolling = (function(){
   
   function historyOn(action, value, callback){
     if(action == 'get'){
-        getColorbox(function(){
+        Plugin.getPlugin("colorbox", function(){
             $jq(".history-logging").colorbox();
             if(callback) callback();
         });
@@ -1529,7 +1575,7 @@ var Scrolling = (function(){
   function loadRSS(id, url){
     var container = $jq("#" + id);
     setLoading(container);
-    getFeed(function(){
+    Plugin.getPlugin("jGFeed", function(){
       $jq.jGFeed(url,
         function(feeds){
           // Check for errors
@@ -1590,81 +1636,306 @@ var Scrolling = (function(){
   
   
 
-  function getScript(name, url, stylesheet, callback) {
-    var head = document.documentElement,
-        script = document.createElement("script"),
-        done = false;
-    loading = true;
-    script.src = url;
-    
-    if(stylesheet){
-     var link = document.createElement("link");
-     link.href = stylesheet;
-     link.rel="stylesheet";
-     document.getElementsByTagName("head")[0].appendChild(link)
-    }
-    
-    script.onload = script.onreadystatechange = function() {
-     if(!done && (!this.readyState ||
-       this.readyState === "loaded" || this.readyState === "complete")){
-       done = true;
-       loading = false;
-       plugins[name] = true;
-       callback();
-     
-        script.onload = script.onreadystatechange = null;
-        if( head && script.parentNode){
-          head.removeChild( script );
-        }
-      }
-    };
-    
-    head.insertBefore( script, head.firstChild);
-    return undefined;
-  }
   
+function setupCytoscape(data, types){
+          var edgeColor = ["#08298A","#B40431","#FF8000", "#04B404","#8000FF", "#191007", "#73c6cd", "#92d17b", "#cC87AB4", "#e4e870" ,"#696D09"],
+              edgeColorMapper = {
+                attrName: "type",
+                entries: []
+              },
+              edgeSourceArrowMapper = {
+                attrName: "direction",
+                entries: [ { attrValue: "Effector->Effected", value: "T" },]
+              },
+              edgeTargetArrowMapper = {
+                attrName: "direction",
+                entries: [ { attrValue: "Effector->Effected", value: "ARROW" },]
+              },
+        nodeShapeMapper = {
+                attrName: "ntype",
+                entries: [
+            { attrValue: 'Sequence', value: "TRIANGLE" },
+            { attrValue: 'PCR product', value: "HEXAGON" },
+            { attrValue: 'CDS', value: "DIAMOND" },
+            { attrValue: 'Gene', value: "OCTAGON" },
+            { attrValue: 'Protein', value: "RECTANGLE" },
+            { attrValue: 'Molecule', value: "PARALLELOGRAM" },
+            { attrValue: 'Other', value: "ELLIPSE" },]
+              },
+              edgeWidthMapper = { attrName: "width",  minValue: 3, maxValue: 15, maxAttrValue: 15 },
+              nodeColorMapper = { attrName: "number", minValue: "#04043D", maxValue: "#6FA2D9" },
+              toolTipMapper = {
+                attrName: "phenotype",
+                entries:[{attrValue: "", value: "<b>${type}<br />${direction}<br />${source} --- ${target}<br />${width} citation(s)</b>"},]
+              },
+                // you could also use other formats (e.g. GraphML) or grab the network data via AJAX
+              networ_json = {
+                dataSchema: {
+                  nodes: [{ name: "label", type: "string" },
+                      { name: "number", type: "int" },
+                      { name: "color", type: "string" },
+                      { name: "ntype", type: "string" },
+                      { name: "link", type: "string" },
+                  ],
+                      
+                  edges: [ { name: "label", type: "string" },
+                      { name: "type", type: "string" },
+                      { name: "direction", type: "string" },
+                      { name: "width", type: "int" },
+                      { name: "phenotype", type: "string" },
+                      { name: "nearby", type: "int" },
+                      //{ name: "link", type: "string" },
+                  ]
+                },
+                data: data,
+              },
+            // visual style we will use
+              visual_style = {
+                global: {
+                backgroundColor: "#ffffff",
+                tooltipDelay: 100
+                },
+                nodes: {
+                shape: "OCTAGON",
+                opacity: 0.7,
+                borderWidth: 0,
+                hoverGlowOpacity: 0.8,
+                size: 30,
+                tooltipText: "<b>${label} (${ntype})</b>",
+                tooltipBackgroundColor: "#fafafa",
+                shape: { discreteMapper: nodeShapeMapper },
+                color: { continuousMapper: nodeColorMapper },
+                hoverGlowColor: "#aae6ff",
+                labelGlowOpacity: 1,
+                labelHorizontalAnchor: "center",
+                },
+                edges: {
+                width: { defaultValue: 0.5, continuousMapper: edgeWidthMapper },
+                color: { defaultValue: "#999999", discreteMapper: edgeColorMapper },
+                opacity:0.4,
+                hoverOpacity: 1,
+                sourceArrowShape: { defaultValue: "NONE", discreteMapper: edgeSourceArrowMapper },
+                targetArrowShape: { defaultValue: "NONE", discreteMapper: edgeTargetArrowMapper },
+                labelHorizontalAnchor: "center",
+                label: { passthroughMapper: { attrName: "type" } },
+                tooltipText: { defaultValue:"<b>${type}<br />${direction}<br />${source} --- ${target}<br />${phenotype}<br />${width} citation(s)</b>", discreteMapper: toolTipMapper },
+                tooltipBackgroundColor: "#fafafa",
+                }
+              },
+            
+            // initialization options
+              options = {
+                // where you have the Cytoscape Web SWF
+                swfPath: "/js/jquery/plugins/cytoscapeweb/swf/CytoscapeWeb",
+                // where you have the Flash installer SWF
+                flashInstallerPath: "/swf/playerProductInstall"
+            };
+            
+          for(var i=-1, type; (type = types[++i]);){
+            visual_style.edges.color.discreteMapper.entries[i] = { attrValue: type,  value: edgeColor[i] };
+          }
+          Plugin.getPlugin("cytoscape_web", function(){ 
+            // init and draw
+            var vis = new org.cytoscapeweb.Visualization("cytoscapeweb", options);
+            
+            vis.draw({ network: networ_json, visualStyle: visual_style,  nodeTooltipsEnabled:true, edgeTooltipsEnabled:true, });
+            vis.ready(function() {
+        vis.filter("nodes", function(node) { return node.data.ntype == 'Gene' || node.data.ntype == 'Other' || node.data.ntype == 'Molecule'})
+                // add a listener for when nodes and edges are clicked
+                vis.addListener("click", "nodes", function(event) {
+                window.open(event.target.data.link);
+                });
+              /* Should be disabled until interactions are merged
+                vis.addListener("click", "edges", function(event) {
+                window.open(event.target.data.link);
+                }); */ 
+            });
+            
+            $jq('.cyto_panel').change(function(){
+                  var direction = $jq("#cyto_panel_direction option:selected").val();
+                  var inter_type = $jq("#cyto_panel_type option:selected").val();
+                  var nearby = $jq("#cyto_panel_nearby option:selected").val();
+          var nodetype = $jq("#cyto_panel_nodetype option:selected").val();
 
-    function getDataTables(callback){
-      getPlugin("dataTables", "/js/jquery/plugins/dataTables/media/js/jquery.dataTables.min.js", "/js/jquery/plugins/dataTables/media/css/demo_table.css", callback);
-      return;
+          if(nodetype ==0){
+              vis.removeFilter("nodes", true);
+          } else {
+              vis.filter("nodes", function(node) { return node.data.ntype == nodetype });
+          }
+
+                  if(direction ==0 && inter_type==0 && nearby==0){
+                    //vis.removeFilter("edges",true);
+                    vis.filter("edges", function(edge){return edge.data.type != "No_interaction"}, true);
+                  }else{
+                  vis.filter("edges", function(edge) {
+                    if(direction !=0 && inter_type!=0 && nearby!=0) {
+                        return edge.data.type == inter_type && edge.data.direction == direction && edge.data.nearby == 0;
+                    }else if(direction !=0 && nearby!=0){
+                        return edge.data.direction == direction && edge.data.nearby == 0  && edge.data.type != "No_interaction";
+                    }else if(direction !=0 && inter_type!=0){
+                        return edge.data.type == inter_type;
+                    }else if(direction !=0){
+                        return edge.data.direction == direction && edge.data.type != "No_interaction";
+                    }else if(inter_type !=0 && nearby!=0){
+                        return  edge.data.type == inter_type && edge.data.nearby == 0;
+                    }else if(nearby != 0){
+                        return edge.data.nearby == 0 && edge.data.type != "No_interaction";
+                    }else{
+                        return edge.data.type == inter_type;
+                    }
+                    }, true);
+                  }
+            });
+            });
+            $jq( "#resizable" ).resizable();
     }
-    function getHighlight(callback){
-      getPlugin("highlight", "/js/jquery/plugins/jquery.highlight-1.1.js", undefined, callback);
-      return;
-    }
-    function getCluetip(callback){
-      getPlugin("cluetip", "/js/jquery/plugins/cluetip-1.0.6/jquery.cluetip.min.js", "/js/jquery/plugins/cluetip-1.0.6/jquery.cluetip.css", callback);
-      return;
-    }
+
+
     function getMarkItUp(callback){
-      getPlugin("markitup", "/js/jquery/plugins/markitup/jquery.markitup.js", "/js/jquery/plugins/markitup/skins/markitup/style.css", function(){
-      getPlugin("markitup-wiki", "/js/jquery/plugins/markitup/sets/wiki/set.js", "/js/jquery/plugins/markitup/sets/wiki/style.css", callback);
+      Plugin.getPlugin("markitup", function(){
+        Plugin.getPlugin("markitup-wiki", callback);
       });
       return;
     }
-    function getColorbox(callback){
-      getPlugin("colorbox", "/js/jquery/plugins/colorbox/colorbox/jquery.colorbox-min.js", "/js/jquery/plugins/colorbox/colorbox/colorbox.css", callback);
-      return;
-    }
     
-    function getFeed(callback){
-      getPlugin("jGFeed", "/js/jquery/plugins/jGFeed/jquery.jgfeed-min.js", undefined, callback);
-      return;
-    }
-  
-  
-    function getPlugin(name, url, stylesheet, callback){
-      if(!plugins[name]){
-        getScript(name, url, stylesheet, callback);
-      }else{
-        if(loading){
-          setTimeout(getPlugin(name, url, stylesheet, callback),1);
-          return;
+    var Plugin = (function(){
+      var plugins = new Array(),
+          loading = false,
+          pScripts = {  highlight: "/js/jquery/plugins/jquery.highlight-1.1.js",
+                        dataTables: "/js/jquery/plugins/dataTables/media/js/jquery.dataTables.min.js",
+                        colorbox: "/js/jquery/plugins/colorbox/colorbox/jquery.colorbox-min.js",
+                        jGFeed:"/js/jquery/plugins/jGFeed/jquery.jgfeed-min.js",
+                        generateFile: "/js/jquery/plugins/generateFile.js",
+                        pfam: "/js/pfam/domain_graphics.min.js",
+                        markitup: "/js/jquery/plugins/markitup/jquery.markitup.js",
+                        "markitup-wiki": "/js/jquery/plugins/markitup/sets/wiki/set.js",
+                        cytoscape_web: "/js/jquery/plugins/cytoscapeweb/js/min/cytoscapeweb_all.min.js",
+          },
+          pStyle = {    dataTables: "/js/jquery/plugins/dataTables/media/css/demo_table.css",
+                        colorbox: "/js/jquery/plugins/colorbox/colorbox/colorbox.css",
+                        markitup: "/js/jquery/plugins/markitup/skins/markitup/style.css",
+                        "markitup-wiki": "/js/jquery/plugins/markitup/sets/wiki/style.css",
+          };
+          
+
+      
+      
+      function getScript(name, url, stylesheet, callback) {
+        
+       function LoadJs(){
+           loadFile(url, true, function(){
+              plugins[name] = true;
+              callback();
+           });
         }
-        callback(); 
+        
+        if(stylesheet){
+         loadFile(stylesheet, false, LoadJs());
+        }else{
+           LoadJs();
+        }
       }
-      return;
-    }
+      
+      
+      function loadFile(url, js, callback) {
+        var head = document.documentElement,
+            script = document.createElement( js ? "script" : "link"),
+            done = false;
+        loading = true;
+        
+        if(js){
+          script.src = url;
+        }else{
+          script.href = url;
+          script.rel="stylesheet";
+          script.type = "text/css";
+        }
+        
+        function doneLoad(){
+            done = true;
+            loading = false;
+            if(callback)
+              callback();   
+        }
+
+        if(js){
+          script.onload = script.onreadystatechange = function() {
+          if(!done && (!this.readyState ||
+            this.readyState === "loaded" || this.readyState === "complete")){
+            doneLoad();
+          
+              script.onload = script.onreadystatechange = null;
+              if( head && script.parentNode){
+                head.removeChild( script );
+              }
+            }
+          };
+          
+          
+        }else{
+          script.onload = function () {
+            doneLoad();
+          }
+          // #2
+          if (script.addEventListener) {
+            script.addEventListener('load', function() {
+            doneLoad();
+            }, false);
+          }
+          // #3
+          script.onreadystatechange = function() {
+            var state = script.readyState;
+            if (state === 'loaded' || state === 'complete') {
+              script.onreadystatechange = null;
+            doneLoad();
+            }
+          };
+
+          // #4
+          var cssnum = document.styleSheets.length;
+          var ti = setInterval(function() {
+            if (document.styleSheets.length > cssnum) {
+              // needs more work when you load a bunch of CSS files quickly
+              // e.g. loop from cssnum to the new length, looking
+              // for the document.styleSheets[n].href === url
+              // ...
+
+              // FF changes the length prematurely  )
+            doneLoad();
+              clearInterval(ti);
+
+            }
+          }, 10);
+        }
+        
+        head.insertBefore( script, head.firstChild);
+        return undefined;
+      }
+
+      
+      function getPlugin(name, callback){
+        var script = pScripts[name],
+            css = pStyle[name];
+        loadPlugin(name, script, css, callback);
+        return;
+      }
+      
+      function loadPlugin(name, url, stylesheet, callback){
+        if(!plugins[name]){
+          getScript(name, url, stylesheet, callback);
+        }else{
+          if(loading){
+            return setTimeout(getPlugin(name, url, stylesheet, callback),1);
+          }
+          callback(); 
+        }
+        return;
+      }
+      
+      return {
+        getPlugin: getPlugin
+      };
+    })();
     
     return{
       init: init,
@@ -1681,20 +1952,23 @@ var Scrolling = (function(){
       resetPageLayout: Layout.resetPageLayout,
       search: search,
       search_change: search_change,
+      search_species_change: search_species_change,
       openid: openid,
       validate_fields: validate_fields,
       StaticWidgets: StaticWidgets,
       recordOutboundLink: recordOutboundLink,
       comment: comment,
       issue: issue,
-      getDataTables: getDataTables,
       getMarkItUp: getMarkItUp,
-      getColorbox: getColorbox,
       checkSearch: checkSearch,
       scrollToTop: scrollToTop,
       historyOn: historyOn,
       allResults: allResults,
-      loadRSS: loadRSS
+      loadRSS: loadRSS,
+      newLayout: Layout.newLayout,
+      setupCytoscape: setupCytoscape,
+      getPlugin: Plugin.getPlugin,
+      reloadWidget: reloadWidget
     }
   })();
 
@@ -1703,11 +1977,13 @@ var Scrolling = (function(){
 
  $jq(document).ready(function() {
       $jq.ajaxSetup( {timeout: 12e4 }); //2 minute timeout on ajax requests
-      WB.init();
+      if(!window.WB){
+        WB.init();
+        window.WB = WB;
+        window.$jq = $jq;
+      }
  });
-
- window.WB = WB;
- window.$jq = $jq;
+ 
 }(this,document);
 
 
@@ -1715,4 +1991,12 @@ if(typeof String.prototype.trim !== 'function') {
   String.prototype.trim = function() {
     return this.replace(/^\s+|\s+$/g, ''); 
   }
+}
+
+if(!Object.keys) Object.keys = function(o){
+   if (o !== Object(o))
+      throw new TypeError('Object.keys called on non-object');
+   var ret=[],p;
+   for(p in o) if(Object.prototype.hasOwnProperty.call(o,p)) ret.push(p);
+   return ret;
 }

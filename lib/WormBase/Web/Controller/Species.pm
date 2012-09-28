@@ -32,7 +32,9 @@ use parent 'WormBase::Web::Controller';
 
 sub species_summary :Path('/species') :Args(0)   {
     my ($self,$c) = @_;
-    $c->detach('species_index',['all']);
+    $c->res->redirect($c->uri_for('/species',"all")->path, 307);
+    $c->go('species_index',['all']);
+    return;
 }
 
 
@@ -49,25 +51,43 @@ sub species_index :Path('/species') :Args(1)   {
     my ($self,$c,$species) = @_;
 
     if (defined $c->req->param('inline')) {
-	$c->stash->{noboiler} = 1;
+      $c->stash->{noboiler} = 1;
     }
 
-    # get static widgets for this page
-    my $page = $c->model('Schema::Page')->search({url=>$c->req->uri->path}, {rows=>1})->next;
+    $self->_setup_page($c);
 
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
+    if ($species) {
+	# Awful portability breaking hack. Need actual species names.
+        my ($g,$s) = split('_',$species);
+	my $api = $c->model('WormBaseAPI');    
+	my $dsn = $api->_services->{'acedb'}->dbh || return 0; # OMG I am so sorry for this.
+	$g = uc($g);
+	my ($string) = $dsn->fetch(
+	    -query => "find Species $g*$s");
+	my ($object) = $dsn->fetch(-class=>'Species',-name=>"$string",-filled=>1);
 
-    if ($species eq 'all' || $self->_is_species($c,$species)) {
-      $c->stash->{section}    = 'species';     # Section of the site we're in. Used in navigation.
-      $c->stash->{class}      = 'all';
-      $c->stash->{is_class_index} = 1;   # 0? 
-#       $c->stash->{is_static}      = 1;	 # Disable widgets like "browse" and "search" 
-      $c->stash->{species}    = $species;           # Class is the subsection	
-      $c->stash->{template}   = 'species/report.tt2';
-    } else {
-	$c->detach('/soft_404');   # We are neither a supported class or proper species name. Error!
+	if ($object) {	    
+	    my ($assembly) = $object->Assembly;
+	    if ($assembly) {
+		$c->log->warn($assembly);
+		# Pull out various information about the assmebly.
+		my $name = $assembly->Name;
+		my $strain = $assembly->Strain;
+		my $taxid  = $assembly->NCBITaxonomyID;
+		my $first_release = $assembly->First_WS_release;
+		$c->stash->{assembly_name}    = $name ? "$name" : undef;
+		$c->stash->{sequenced_strain} = $strain ? $self->_pack_obj($strain) : undef;
+		$c->stash->{ncbi_taxonomy_id} = $taxid  ? "$taxid" : undef;
+		$c->stash->{first_wormbase_release} = $first_release ? "$first_release" : undef;
+	    }
+	}
     }
+
+    $c->stash->{section}    = 'species';     # Section of the site we're in. Used in navigation.
+    $c->stash->{class}      = 'all';
+    $c->stash->{is_class_index} = 1;   
+    $c->stash->{species}    = $species;           # Class is the subsection	
+    $c->stash->{template}   = 'species/report.tt2';
 }
 
 
@@ -82,29 +102,18 @@ sub species_index :Path('/species') :Args(1)   {
 sub class_index :Path("/species") Args(2) {
     my ($self,$c,$species,$class) = @_;
     if (defined $c->req->param('inline')) {
-	$c->stash->{noboiler} = 1;
+      $c->stash->{noboiler} = 1;
     }
 
-    # get static widgets for this page
-    my $page = $c->model('Schema::Page')->search({url=>$c->req->uri->path}, {rows=>1})->next;
+    # get static widgets / layout info for this page
+    $self->_setup_page($c);
 
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
-
-    # Is this a species known to WormBase?
-    if ($species eq 'all' || $self->_is_species($c,$species)) {
-
-#	if ($self->_is_class($c,$class)) {
     $c->stash->{template} = 'species/report.tt2';
-	    $c->stash->{section}     = 'species';
-	    $c->stash->{class}       = $class;
-	   
-	    $c->stash->{species}     = $species;  # Provided for formatting, limit searches
-	    $c->stash->{is_class_index} = 1;       # used by report_page macro as a flag that this is an index page.
-    } else {
-	# maybe search class names?
-	$c->detach;
-    }   
+    $c->stash->{section}     = 'species';
+    $c->stash->{class}       = $class;
+    
+    $c->stash->{species}     = $species;  # Provided for formatting, limit searches
+    $c->stash->{is_class_index} = 1;       # used by report_page macro as a flag that this is an index page.
 }
 
 
@@ -120,7 +129,7 @@ sub class_index :Path("/species") Args(2) {
 
 sub object_report :Path("/species") Args(3) {
     my ($self,$c,$species,$class,$name) = @_;
-#    $self->_get_report($self, $c, $class, $name);
+
     $c->stash->{section}  = 'species';
     $c->stash->{species}  = $species,
     $c->stash->{class}    = $class;
@@ -133,18 +142,25 @@ sub object_report :Path("/species") Args(3) {
     $c->stash->{query_name} = $name;
     $c->stash->{class}      = $class;
 
-    my $object = $c->model('WormBaseAPI')->fetch({
-        class  => ucfirst($class),
-        name   => $name,
-    }); # error handling?
-
-    $c->res->redirect($c->uri_for('/search',$class,"$name")."?redirect=1")  if($object == -1 );
+    my $api = $c->model('WormBaseAPI');
+    my $object = $api->xapian->_get_tag_info($c, $name, lc($class));
 
 
-    if($object){
-      $c->stash->{object}->{name} = $object->name; # a hack to avoid storing Ace objects...
+    #temporary fix
+    if((lc($class) eq 'pcr_oligo') && ($object->{id} ne $name)){
+      $object->{id} = $name;
+      $object->{label} = $object->{id};
+      $object->{taxonomy} = $species;
+      $object->{class} = lc($class);
+    }
+
+    if(!($object->{label}) || $object->{id} ne $name || $object->{class} ne lc($class)){
+      $c->res->redirect($c->uri_for('/search',$class,"$name")->path."?redirect=1", 307);
+      return;
+    } else {
+      $c->stash->{object}->{name}{data} = $object; # a hack to avoid storing Ace objects...
       if((my $taxonomy = $c->stash->{object}->{name}{data}{taxonomy}) ne $species){
-        $c->res->redirect("/species/$taxonomy/$class/$name", 307);
+        $c->res->redirect($c->uri_for("/species", $taxonomy, $class, $name)->path, 307);
       }
     }
 
@@ -157,11 +173,7 @@ sub object_report :Path("/species") Args(3) {
         };
     }
 
-    # get static widgets for this page
-    my $page = $c->model('Schema::Page')->search({url=>$c->req->uri->path}, {rows=>1})->next;
-    my @widgets = $page->static_widgets if $page;
-    $c->stash->{static_widgets} = \@widgets if (@widgets);
-
+    $self->_setup_page($c);
 }
 
 
@@ -178,14 +190,6 @@ sub _is_class {
     return 1 if (defined $c->config->{'sections'}->{'species'}->{$arg});
     return 0;
 }
-
-# Is the argument a species?
-sub _is_species {
-    my ($self,$c,$arg) = @_;
-    return 1 if (defined $c->config->{sections}->{'species_list'}->{$arg});
-    return 0;
-}
-
 
 
 

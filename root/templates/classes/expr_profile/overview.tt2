@@ -1,4 +1,4 @@
-<h2>[% tag2link(fields.name.data) %]</h2>
+<h2>[% fields.name.data.label %]</h2>
 
 [%
 
@@ -8,9 +8,6 @@ WRAPPER highlight_box;
         fields.method.data;
    END;
 
-   WRAPPER $field_block title="WormBase ID"; 
-        fields.name.data.id;
-   END;
 END;
 
 IF fields.pcr_data.keys > 0;
@@ -22,11 +19,11 @@ IF fields.pcr_data.keys > 0;
 END;
 
 WRAPPER $field_block title='Profiles' key='profiles';
-	link_objects(fields.profiles.data);
+	tags2link(fields.profiles.data);
 END;
 
 WRAPPER $field_block title='PCR Products' key='pcr_products';
-	link_objects(fields.pcr_products.data);
+	tags2link(fields.pcr_products.data);
 END;
 	
 WRAPPER $field_block title='Expression Map' key='expression_map';

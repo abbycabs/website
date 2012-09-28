@@ -8,13 +8,13 @@ use Ace 1.51;
 use CGI 2.42 qw/:standard :html3 escape/;
 #use CGI::Carp qw/fatalsToBrowser/;
 #use Ace::Browser::AceSubs qw(:DEFAULT Style);
-use Ace::Browser::TreeSubs qw(AceImageHackURL);
+#use Ace::Browser::TreeSubs qw(AceImageHackURL);
 
 use constant MAXEXPAND   => 10;
 use constant CLOSEDCOLOR => "#909090";
 use constant OPENCOLOR   => "#FF0000";
 
-use vars qw/$request_name $request_class $view $dsn @expand @squash/;
+use vars qw/$request_name $request_class $view $dsn @expand @squash $inline/;
 
 use namespace::autoclean -except => 'meta';
 
@@ -24,6 +24,9 @@ sub index {
     return $data;
 }
 
+# built-in or more efficient method to handle this? MK
+sub flatlist { return map { ref($_) eq 'ARRAY' ? flatlist(@$_) : $_ } @_; }
+
 sub run {
     my ($self,$param) = @_;
     $request_name  = $param->{'name'};
@@ -31,6 +34,9 @@ sub run {
     $view       = $param->{'view'};
     @squash     = $param->{'squash'};
     @expand     = $param->{'expand'};
+    $inline	= $param->{'inline'};
+    @squash = flatlist(@squash);
+    @expand = flatlist(@expand);
 
     # This is a kludge to handle our linking scheme.
     # Normally, we have /species/class/object
@@ -82,7 +88,7 @@ sub generate_tree {
 
 sub to_href {
     my $obj = shift;
-    
+    my $target = $inline ? '_blank' : '_self';
     if ($obj->class eq 'txt') {
 	return $obj =~ /\n/ ? pre(escapeHTML($obj)) : escapeHTML($obj);
     }
@@ -150,12 +156,12 @@ sub to_href {
 	    my $to_expand = join('&expand=',map { CGI::escape($_) } (keys %expand,$name));
 #	    return (a({-href=>url(-relative=>1,-path_info=>1) 
 	    return (a({-href=>"/tools/tree/run" 
-			   . "?name=$pn&class=$pc"
+			   . "?name=$pn;class=$pc"
 			   . ($to_squash ? ";squash=$to_squash" : '') 
 			   . ($to_expand ? ";expand=$to_expand" : '')
 			   . "#$name",
 			   -name=>"$name",
-			   -target=>"_self"},
+			   -target=>$target},
 		      b(font({-color=>CLOSEDCOLOR},"$title ($cnt)"))),
 		    1);
 	} elsif (!$obj->isObject) {
@@ -163,12 +169,12 @@ sub to_href {
 	    my $to_expand = join('&expand=',map { CGI::escape($_) } grep $name ne $_,keys %expand);
 	    return (a({-href=>"/tools/tree/run" 
 #	    return (a({-href=>url(-relative=>1,-path_info=>1,-query=>1) 
-			   . "?name=$pn&class=$pc"
-			   . ($to_squash ? "&squash=$to_squash" : '') 
-			   . ($to_expand ? "&expand=$to_expand" : '')
+			   . "?name=$pn;class=$pc"
+			   . ($to_squash ? ";squash=$to_squash" : '') 
+			   . ($to_expand ? ";expand=$to_expand" : '')
 			   . "#$name",
 			   -name=>"$name",
-			   -target=>"_self"},
+			   -target=>$target},
 		      b(font({-color=>OPENCOLOR},"$title"))),
 		    0);
 	}
@@ -177,8 +183,9 @@ sub to_href {
     return i($title) if $obj->isComment;
     
     if ($obj->isObject) {
-	return (a({-href=>url(-relative=>1,-path_info=>1) 
-		       . "?name=$name;class=$class"},$title), 0);
+#	return (a({-href=>url(-relative=>1,-path_info=>1) 
+	$name =~ s/^#/?/ if $class eq 'Model';
+	return (a({-href=>"/tools/tree/run?name=$name;class=$class", -target=>$target},$title), 0);
     }
     
     if ($obj->isTag) {

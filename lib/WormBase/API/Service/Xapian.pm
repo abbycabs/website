@@ -96,23 +96,24 @@ sub search_exact {
     my ( $class, $c, $q, $type) = @_;
   
     my ($query, $enq);
-    if( $type && ($q =~ m/^WB/i) ){
+    if( $type && ( ($q =~ m/^WB/i) || $type eq 'disease') ){
       $query=$class->qp->parse_query( "$type$q", 1|2 );
       $enq       = $class->db->enquire ( $query );
       $c->log->debug("query:" . $query->get_description());
-    }else{
+    }elsif(!($q =~ m/\s.*\s/)){
       $q .= " $type..$type" if $type;
       $query=$class->syn_qp->parse_query( $q, 1|2 );
       $enq       = $class->syn_db->enquire ( $query );
       $c->log->debug("query:" . $query->get_description());
     }
 
-    my $mset      = $enq->get_mset( 0,1 );
-    if($mset->empty()){
+    my $mset      = $enq->get_mset( 0,2 ) if $enq;
+    if(!$mset || $mset->empty()){
+      $q .= " $type..$type" if $type;
       $query=$class->qp->parse_query( $q, 1|2 );
       $enq       = $class->db->enquire ( $query );
       $c->log->debug("query:" . $query->get_description());
-      $mset      = $enq->get_mset( 0,1 );
+      $mset      = $enq->get_mset( 0,2 );
     }
 
     return Catalyst::Model::Xapian::Result->new({ mset=>$mset,
@@ -175,7 +176,7 @@ sub _get_obj {
     $ret{taxonomy}{genus} = $s->{genus} || uc($1) . '.';
     $ret{taxonomy}{species} = $s->{species} || $2;
   }
-  $ret{ptype} = $doc->get_value(7);
+  $ret{ptype} = $doc->get_value(7) if $doc->get_value(7);
   %ret = %{$self->_split_fields($c, \%ret, uri_unescape($doc->get_data()))};
   if($doc->get_value(4) =~ m/^(\d{4})/){
     $ret{year} = $1;
@@ -213,19 +214,40 @@ sub _split_fields {
 }
 
 sub _get_tag_info {
-  my ($self, $c, $id, $class, $fill, $footer) = @_;
-  my ($it,$res)= $self->search_exact($c, $id, $class);
-  if($it->{pager}->{total_entries} > 0 ){
-    my $doc = @{$it->{struct}}[0]->get_document();
-    if($doc->get_value(1) =~ m/$id/g){
-      if($fill){
-        return $self->_get_obj($c, $doc, $footer);
+  my ($self, $c, $id, $class, $fill, $footer, $aceclass) = @_;
+
+  my $api = (exists $c->{modelmap}) ? $c : $c->model('WormBaseAPI');
+  if ($class) { # WB class was provided
+      $aceclass = $api->modelmap->WB2ACE_MAP->{class}->{ucfirst($class)}
+                || $api->modelmap->WB2ACE_MAP->{fullclass}->{ucfirst($class)};
+      $aceclass = $class unless $aceclass;
+  }
+
+  if (ref $aceclass eq 'ARRAY') { # multiple Ace classes
+    foreach my $ace (@$aceclass) {
+      my ($it,$res)= $self->search_exact($c, $id, lc($ace));
+      if($it->{pager}->{total_entries} > 0 ){
+        my $doc = @{$it->{struct}}[0]->get_document();
+        my $ret;
+        if($fill){
+          $ret = $self->_get_obj($c, $doc, $footer);
+        }
+        $ret = $self->_pack_search_obj($c, $doc);
+        $ret->{class} = $class;
+        return $ret;
       }
-      return $self->_pack_search_obj($c, $doc);
+    }
+  }else{
+    my ($it,$res)= $self->search_exact($c, $id, lc($aceclass));
+    if($it->{pager}->{total_entries} > 0 ){
+      my $doc = @{$it->{struct}}[0]->get_document();
+        if($fill){
+          return $self->_get_obj($c, $doc, $footer);
+        }
+        return $self->_pack_search_obj($c, $doc);
     }
   }
   my $tag =  { id => $id,
-           label => $id,
            class => $class
   };
   $tag = { name => $tag, footer => $footer } if $fill;
@@ -238,7 +260,10 @@ sub _pack_search_obj {
   return {  id => $id,
             label => $label || $doc->get_value(6) || $id,
             class => $doc->get_value(2),
-            taxonomy => $doc->get_value(5)
+            taxonomy => $doc->get_value(5),
+            coord => { start => $doc->get_value(9),
+                       end => $doc->get_value(10),
+                       strand => $doc->get_value(11)}
   }
 }
 

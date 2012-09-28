@@ -1,12 +1,14 @@
+<h2>[% fields.name.data.label %]</h2>
 [%
-
-'<h2 style="float:left">' _ fields.name.data.label; 
-'</h2>';
 
 WRAPPER highlight_box;
 
    WRAPPER $field_block title="Email";
         fields.email.data.join("<br>");
+   END;
+
+   WRAPPER $field_block key="aka" title="Also known as";
+        fields.aka.data.join("<br />");
    END;
 
    # WRAPPER $field_block title="Lab Phone"; 
@@ -21,16 +23,13 @@ WRAPPER highlight_box;
           # fields.fax.data;
    # END;
 
-   WRAPPER $field_block title="WormBase ID";
-         fields.name.data.id;
-   END;
 
 END;
 
 
 
 
-'<div class="text-width" style="clear:left;padding:0.5em 0;">';
+'<div class="description">';
    fields.street_address.data.join('<br>');
    TRY; IF fields.country.data; "<br>" ; fields.country.data; END; END;
 '</div>';
@@ -42,7 +41,9 @@ WRAPPER $field_block title="Institution" key="institution";
 END;
       
 WRAPPER $field_block title="Web Page" key="web_page";
-    '<a href="http://' _ fields.web_page.data _ '">' _ fields.web_page.data _ '</a><br>';
+    FOREACH url IN fields.web_page.data;
+       '<a href="' _ url _ '">' _ url _ '</a><br>';
+    END;
 END;
 
 WRAPPER $field_block title="Updates";
@@ -52,6 +53,31 @@ WRAPPER $field_block title="Updates";
      _  object.name.data.id _ '">';
      'Add or update</a> your contact information.';
 END;
+
+
+IF (fields.previous_addresses.data.defined && fields.previous_addresses.data.size > 0);
+   WRAPPER toggle title="Previous Addresses";
+
+     FOREACH address IN fields.previous_addresses.data;
+          "<p>";
+          address.date_modified;
+          TRY; IF address.street_address; address.street_address; END; END;
+          TRY; IF address.country; "<br>" ; address.country; END; END;
+          TRY; IF address.institution; "<br>" ; address.institution; END; END;
+ 	  TRY; IF address.email; "<br>" ; address.email.join("<br>"); END; END;
+	  "</p>";
+     END;
+   END;
+
+END;
+
+
+
+
+
+
+
+
 
 
 

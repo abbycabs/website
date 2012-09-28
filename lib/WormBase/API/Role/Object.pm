@@ -3,6 +3,7 @@ package WormBase::API::Role::Object;
 use Moose::Role;
 use File::Path 'mkpath';
 use WormBase::API::ModelMap;
+use Moose::Util::TypeConstraints;
 
 # I should have an abstract method for id():
 # provided with a class and a name, return the internal ID, if different.
@@ -26,9 +27,12 @@ use WormBase::API::ModelMap;
 #    default => 10,
 #);
 
+class_type 'Ace::Object';
+
 has 'object' => (
     is  => 'rw',
-    isa => 'AceCouch::Object',
+    isa => 'Maybe[AceCouch::Object]',
+    default => undef,
 );
 
 has 'dsn' => (
@@ -139,7 +143,6 @@ has 'name' => (
 sub _build_name {
     my ($self) = @_;
     my $object = $self->object;
-#    my $class  = $object->class;
     return {
         description => "The name and WormBase internal ID of $object",
         data        =>  $self->_pack_obj($object),
@@ -179,8 +182,8 @@ sub _make_common_name {
         if ($wbclass->meta->get_method('_build__common_name')
             ->original_package_name ne __PACKAGE__) {
             # this has potential for circular dependency...
-            $self->log->debug("$class has overridden _build_common_name");
-            $name = $self->_api->wrap($object)->_common_name;
+#             $self->log->debug("$class has overridden _build_common_name");
+            $name = $self->_api->wrap($object)->_common_name; 
         }
     }
 
@@ -477,7 +480,7 @@ sub _build_best_blastp_matches {
             hit      => $self->_pack_obj($hit),
             description => $description && "$description",
             evalue      => sprintf("%7.3g", 10**-$best{$_}{score}),
-            percent     => sprintf("%2.1f%%", 100 * ($best{$_}{covered}) / $length),
+            percent     => $length == 0 ? '0' : sprintf("%2.1f%%", 100 * ($best{$_}{covered}) / $length),
         };
 
 #[$taxonomy,{label=>"$hit",id=>($id ? "$id" : "$hit"),class=>$class},"$description",
@@ -487,7 +490,7 @@ sub _build_best_blastp_matches {
 
     return {
         description => 'best BLASTP hits from selected species',
-        data        => @hits ? \@hits : undef
+        data        => {biggest=>"$biggest", hits => @hits ? \@hits : undef}
     };
 }
 
@@ -741,11 +744,16 @@ sub _build_description {
         $tag = 'Description';
     }
     # do many models have multiple description values?
-    my $description = eval {join(' ', $object->$tag)} || undef;
-
+    my $description ;
+    if($class eq 'Phenotype'){
+      my @array =map {{text=>"$_",evidence=>$self->_get_evidence($_)}}  @{$self ~~ "\@$tag"} ;
+      $description = @array? \@array:undef;
+    }else{
+	$description = eval {join(' ', $object->$tag)} || undef;
+    }
     return {
         description => "description of the $class $object",
-        data        => $description && "$description",
+        data        => $description,
     };
 
     ## deal with evidence... ?
@@ -923,19 +931,22 @@ sub _build_laboratory {
     my $WB2ACE_MAP = WormBase::API::ModelMap->WB2ACE_MAP->{laboratory};
 
     my $tag = $WB2ACE_MAP->{$class} || 'Laboratory';
-    my $data; # trick: $data is undef until following code derefs it like hash (or not)!
-    if (my $lab = eval {$object->$tag}) {
-        $data->{laboratory} = $self->_pack_obj($lab,$lab->Mail);
-	 
-        my $representative = $lab->Representative;
-        my $name           = $representative->Standard_name;
-        my $rep            = $self->_pack_obj($representative, $name);
-        $data->{representative} = $rep if $rep;
-    }
+    my @data;
 
+    if (eval {$object->$tag}) {
+	foreach my $lab ($object->$tag) {
+	    my $label = $lab->Mail || "$lab";
+	    my $representative = $lab->Representative;
+	    my $name           = $representative->Standard_name if $representative;
+	    push @data, {
+		laboratory => $self->_pack_obj($lab, "$label"),
+		representative => $self->_pack_obj($representative, "$name"),
+	    };
+	}
+    }
     return {
         description => "the laboratory where the $class was isolated, created, or named",
-        data        => $data,
+        data        => @data ? \@data : undef,
     };
 }
 
@@ -1073,9 +1084,9 @@ has 'phenotypes' => (
 
 sub _build_phenotypes {	
 	my $self = shift;
-	my $data = $self->_build_phenotypes_data('Phenotype'); 	
+	my $data = $self->_build_phenotypes_data('Phenotype');
 	return {
-		data => $data,
+		data => @$data ? $data : undef,
 		description =>'phenotypes annotated with this term',
 	};
 }
@@ -1141,9 +1152,9 @@ has 'phenotypes_not_observed' => (
 
 sub _build_phenotypes_not_observed {
 	my $self = shift;
-	my $data = $self->_build_phenotypes_data('Phenotype_not_observed'); 	
+	my $data = $self->_build_phenotypes_data('Phenotype_not_observed');
 	return {
-		data => $data,
+		data => @$data ? $data : undef,
 		description =>'phenotypes NOT observed or associated with this object' };
 }
 
@@ -1156,13 +1167,12 @@ sub _build_phenotypes_data {
         my $desc = $_->Description;
         my $remark = $_->Remark;
         {
-            phenotype   =>  $self->_pack_obj($_),
+            phenotype   => $self->_pack_obj($_),
+            evidence => { evidence => $self->_get_evidence($_)},
             description => $desc    && "$desc",
             remarks     => $remark && "$remark",
         };
     } @{$self ~~ '@'.$tag} ];
-   
-     
 }
 
 
@@ -1596,7 +1606,7 @@ sub _build_remarks {
     my $object = $self->object;
 
     #    my @remarks = grep defined, map { $object->$_} qw/Remark/;
-    my @remarks = $object->Remark;
+    my @remarks = eval { $object->Remark };
     my $class   = $object->class;
 
     # Need to add in evidence handling.
@@ -1604,7 +1614,7 @@ sub _build_remarks {
 
     @remarks = grep { !/phenobank/ } @remarks if($class =~ /^RNAi$/i);
 
-    @remarks = map {"$_"} @remarks; # stringify them
+    @remarks = map { { text => "$_", evidence =>$self->_get_evidence($_)} } @remarks; # stringify them
 
     # TODO: handling of Evidence nodes
     return {
@@ -1751,12 +1761,12 @@ sub _build_status {
     my ($self) = @_;
     my $object = $self->object;
     my $class  = $object->class;
-    my $status = $class eq 'Protein' ? ($object->Live ? 'live' : 'history')
+    my $status = $class eq 'Protein' ? $object->Live
 	: (eval{$object->Status} ? $object->Status : 'unverified');
 
     return {
-        description => "current status of the $class:$object",
-        data        => $status && "$status",
+        description => "current status of the $class:$object if not Live",
+        data        => $status && (($status eq 'Live') ? undef : "$status"),
     };
 }
 
@@ -1902,32 +1912,24 @@ sub _build_xrefs {
     my @databases = $object->Database;
     my %dbs;
     foreach my $db (@databases) {	
-        my $name            = $db->Name || "$db";
-        my $description     = $db->Description;
-        my $url             = $db->URL;
-        my $url_constructor = $db->URL_constructor;
-        my $email           = $db->Email;
-        my $remote_text     = $db->right;
-	$url_constructor =~ s/<Gene&RNAID>$/\%s/ ;
+#         my $name            = $db->Name || "$db";
+#         my $description     = $db->Description;
+#         my $url             = $db->URL;
+#         my $url_constructor = $db->URL_constructor;
+#         my $email           = $db->Email;
+#         my $remote_text     = $db->right;
+# 	$url_constructor =~ s/<Gene&RNAID>$/\%s/ ;
         # Possibly multiple entries for a single DB
-        my @ids = map {
-            my @types = $_->col;
-            @types ? map { "$_" } @types : eval { $_->right->name } ;
-        } $db->col;
-
-        $dbs{$db} = {
-            name            => $name            && "$name",
-            description     => $description     && "$description",
-            url             => $url             && "$url",
-            url_constructor => $url_constructor && "$url_constructor",
-            email           => $email           && "$email",
-            label           => $remote_text     && "$remote_text",
-            ids             => \@ids,
-        };
+	@{$dbs{$db}{ids}} = map {
+	    my @types = $_->col;
+	    map { 
+		my $val = $_;
+		if ($val =~ /OMIM:(.*)/) {"$1"}
+		elsif ($val =~ /GI:(.*)/){"$1"}
+		else { "$_" }
+	    } @types;
+	} $db->col;
     }
-
-    # ?Analysis has a separate URL tag.
-    #    my $url = $object->URL if eval { $object->URL } ;
 
     return {
         description => 'external databases and IDs containing additional information on the object',
@@ -1956,7 +1958,7 @@ sub mysql_dsn {
 sub gff_dsn {
     my ($self, $species) = @_;
     $species ||= $self->_parsed_species;
-    $self->log->debug("geting gff database species $species");
+    $self->log->debug("getting gff database species $species");
     return $self->dsn->{"gff_" . $species};
 }
 
@@ -1966,7 +1968,9 @@ sub ace_dsn {
 }
 
 
-
+# No longer using NFS because of piss-poor performance.
+# So I'll need to associate a back end node with the dynamic image.
+# Is this ONLY used by blast_blat?
 sub tmp_image_dir {
     my $self = shift;
 
@@ -2123,7 +2127,6 @@ sub _check_data_content {
 
     my @compliance_problems;
     my ($tmp, @problems);
-
     if ($ref eq 'ARRAY') {
         foreach (@$data) {
             if (($tmp, @problems) = $self->_check_data_content($_, @keys))
@@ -2291,5 +2294,55 @@ sub wormbook_abstracts {
     };
     return $result;
 }
+
+sub _get_genotype {
+    my ($self, $object) = @_;
+    my $genotype = $object->Genotype;
+
+    my @data;
+    my @matches;
+    my %elements;
+    foreach my $tag ($object->Contains) {
+	map {my $name = $self->_make_common_name($_); $elements{"$name"} = $self->_pack_obj($_)} $object->$tag;
+    }
+
+    return {
+	str => "$genotype" || undef,
+	data => %elements ? \%elements : undef,
+    };
+}
+
+#########################################
+#
+#   INTERNAL METHODS
+#
+#########################################
+sub _fetch_gff_gene {
+    my ($self,$transcript) = @_;
+
+    my $trans;
+    my $GFF = $self->gff_dsn() or return; # should probably log this?
+    eval {$GFF->fetch_group()};
+    return if $@; # should probably log this
+
+#    if ($self->object->Species =~ /briggsae/) {
+    $self->log->warn("gff is: $GFF");
+        ($trans) = grep {$_->method eq 'wormbase_cds'} $GFF->fetch_group(Transcript => $transcript)
+            and return $trans;
+#    }
+
+    ($trans) = grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Transcript => $transcript)
+        and return $trans;
+
+    # Now pseudogenes
+    ($trans) = grep {$_->method eq 'pseudo'} $GFF->fetch_group(Pseudogene => $transcript)
+        and return $trans;
+
+    # RNA transcripts - this is getting out of hand
+    ($trans) = $GFF->segment(Transcript => $transcript);
+    return $trans;
+}
+
+
 
 1;

@@ -1,0 +1,47 @@
+<h2>[% fields.name.data.label %] ([% fields.sequence_type.data %])</h2>
+
+[%
+
+WRAPPER highlight_box;
+WRAPPER $field_block title="Method" key='method';
+        fields.method.data.method;
+    IF fields.method.data.details.defined;
+        ": ";
+        fields.method.data.details;
+    END;
+END;
+
+END;
+
+'<div class="description">';
+	 markup(fields.description.data);
+
+WRAPPER $field_block title="Identity" key='identity';
+	 fields.identity.data;
+END;
+
+
+remarks;
+
+laboratory;
+
+WRAPPER $field_block title="Available From" key="available_from";
+    tag2link(fields.available_from.data);
+END;
+
+ '</div>';
+%]
+
+[%
+        build_data_table( order = ['gene', 'model', 'length_unspliced','type', 'cds', 'length_spliced','protein','length_protein'],
+                          columns = { gene => 'Gene',
+                                      model => 'Transcript',
+                                      type => 'Type',
+                                      length_spliced   => 'Coding<br />Sequence<br />Length (nt)',
+                                      length_unspliced => 'Transcript<br />Length (nt)',
+                                      cds => 'Coding<br />Sequence<br />(CDS)',
+                                      protein => 'Protein',
+                                      length_protein => 'Protein<br />Length (aa)'},
+                          passed_data = fields.corresponding_all.data,
+                          key = 'gene_models_constructed' );
+%]

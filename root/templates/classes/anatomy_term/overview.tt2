@@ -1,23 +1,21 @@
 
-	<h2>[% tag2link(fields.term.data) %]</h2>
+<h2>[% fields.name.data.label %]</h2>
 
 [% WRAPPER highlight_box %]
-	[% WRAPPER $field_block title="WormBase ID" key="name"-%] 
-		[%  fields.name.data.id %]
-	[% END %]
+    [% WRAPPER $field_block title="Synonyms" key="synonyms" -%] 
+        [% fields.synonyms.data.join(', ') %]
+    [% END %]
 [% END %]
 
-	[% WRAPPER $field_block title="Definition" key="definition"-%] 
+
+   <div class="description">
+	[%# WRAPPER $field_block title="Definition" key="definition"-%] 
 		[%  fields.definition.data %]
-	[% END %]
+	[%# END %]
+  </div>
 
 
 
-	[% WRAPPER $field_block title="Synonyms" key="synonyms" -%] 
-		[% FOREACH data IN fields.synonyms.data %]
-			[%  tag2link(data) %]<br>
-		[% END %] 
-	[% END %]
 
 
 

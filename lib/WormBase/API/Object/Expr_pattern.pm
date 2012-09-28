@@ -210,8 +210,8 @@ sub expression_image {
     my $object = $self->object;
 
 	my $data;
-	my $file = File::Spec->catfile($self->pre_compile->{image_file_base},$self->pre_compile->{expr_object}, "$object.jpg");
-	$data = File::Spec->catfile($self->pre_compile->{expr_object},"$object.jpg") if (-e $file && !-z $file);
+	my $file = File::Spec->catfile($self->pre_compile->{image_file_base},$self->pre_compile->{expression_object_path}, "$object.jpg");
+	$data = File::Spec->catfile($self->pre_compile->{expression_object_path},"$object.jpg") if (-e $file && !-z $file);
 
 	return {
 		description => 'Image of the expression pattern',
@@ -491,14 +491,17 @@ sub gene_ontology {
     my ($self) = @_;
     
     my @go_terms = map {
-	go_term => $self->_pack_obj($_),
-	definition => $_->Definition->name,
-    }, @{$self ~~ '@GO_term'};
+	my $name = $_->Definition->name;
+	{
+	  go_term => $self->_pack_obj($_),
+	  definition => $name && "$name",
+	};
+    } $self->object->GO_term;
     
     return {
 	description => 'gene ontology terms associated with this expression pattern',
 	data	    => @go_terms ? \@go_terms : undef,
-	};
+    };
 }
 
 =head3 experimental_details
@@ -567,7 +570,8 @@ sub experimental_details {
     }
 
     if (my $date = $self ~~ 'Date') {
-        $data{date} = $date->name;
+	my $name = $date->name if $date;
+        $data{date} = $name && "$name";
     }
 
     return {
@@ -584,7 +588,7 @@ sub experimental_details {
 #
 #######################################
 
-=heads2
+=head2
 
 =head3 curated_images
 

@@ -250,7 +250,7 @@ sub movies {
     my $self        = shift;
     my $object      = $self->object;
     my @tag_objects = $object->Supporting_data->col if $object->Supporting_data;
-    my @data        = map { $_ = $self->_pack_obj($_,$_->Remark) } @tag_objects if @tag_objects;
+    my @data        = map { my $label = eval {$_->Remark}; $_ = $self->_pack_obj($_,"$label" || undef) } @tag_objects if @tag_objects;
     return { data        => @data ? \@data : undef,
 	     description => 'movies documenting effect of rnai' };
 }
@@ -326,10 +326,19 @@ B<Response example>
 sub reagent {
     my $self        = shift;
     my $object      = $self->object;
-    my @tag_objects = $object->PCR_product;
-    my @data        = map { $_ = $self->_pack_obj($_) } $object->PCR_product;
+    my @data;
+    my @pcr_products = $object->PCR_product;
+    # Here we include a link to the MRC GeneService.
+    # This cuts against the grain of using External Links
+    # but these are important reagents.
+    foreach (@pcr_products) {
+	my $gene_service_id = eval { $_->Clone->Database(3); };
+	push @data, { reagent => $self->_pack_obj($_),
+		      mrc_id  => $gene_service_id ? "$gene_service_id" : undef,
+	};
+    }
     return { data        => @data ? \@data : undef,
-	     description => 'prc products used to generate this RNAi'
+	     description => 'PCR products used to generate this RNAi'
     };
 }
 
@@ -386,7 +395,7 @@ B<Response example>
 sub sequence {
     my $self        = shift;
     my $object      = $self->object;
-    my @tag_objects = $object->Sequence_info->right;
+    my @tag_objects = $object->Sequence_info->right if $object->Sequence_info;
     my @data   = map { {sequence=>"$_",
 			length=>length($_),
 		      } 

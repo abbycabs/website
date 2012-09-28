@@ -82,29 +82,28 @@ B<Response example>
 
 =cut 
 
-sub all_gene_classes {
-    my $self   = shift;
+{ # temporary fix. this should actually be cached for the entire class.
+  # better yet, this should be designated as a class method, signaled at the
+  # controller level for caching
+    my $gene_classes;
 
-    my $db   = $self->ace_dsn->dbh;
-    my @gene_class = $db->fetch(-query=>qq/find Gene_class/);
-    my @rows;
-    
-    foreach (@gene_class) {
-	my $lab   = $_->Designating_laboratory;
-	my $desc  = $_->Description; 
-	my $phene = $_->Phenotype;
-	my @genes = $_->Genes;
-        push @rows, { gene_class => $self->_pack_obj($_),
-		      laboratory => $self->_pack_obj($lab),
-		      description => "$desc",
-		      phenotype   => "$phene",
-		      genes       => scalar @genes };
+    sub all_gene_classes {
+        my $self   = shift;
+
+        return $gene_classes ||= {
+            description => 'a summary of all gene classes',
+            data => [
+                map {
+                    gene_class  => $self->_pack_obj($_),
+                    laboratory  => $self->_pack_obj(scalar $_->Designating_laboratory),
+                    description => scalar eval { $_->Description->name },
+                    phenotype   => scalar eval { $_->Phenotype->name },
+                    genes       => scalar ( () = $_->Genes ),
+                }, $self->ace_dsn->dbh->fetch(-query => "find Gene_class")
+            ],
+        };
     }
-    
-    return { description => 'a summary of all gene classes',
-	     data        => \@rows };   
 }
-
 
 #######################################
 #
@@ -116,8 +115,7 @@ sub all_gene_classes {
 
 =cut
 
-#######################################
-#
+########################################
 # The Overview widget 
 #
 #######################################
@@ -276,19 +274,19 @@ sub current_genes {
 	my $species = $gene->Species;
 	
 	my $sequence_name = $gene->Sequence_name;
-	my $locus_name    = $gene->Public_name;
-	my $name = ($locus_name ne $sequence_name) ? "$locus_name ($locus_name)" : "$locus_name";
+# 	my $locus_name    = $gene->Public_name;
+# 	my $name = ($locus_name ne $sequence_name) ? "$locus_name ($locus_name)" : "$locus_name";
 	
 	# Some redundancy in the data structure here while
 	# we decide how to format this data.
 	push @{$data{$species}},
 	{ species  => $self->_split_genus_species($species),
 	  locus    => $self->_pack_obj($gene),
-	  sequence => "$sequence_name",
+	  sequence => $self->_pack_obj($sequence_name),
 	};		     
     }
     return { description => 'genes assigned to the gene class, organized by species',
-	     data        => \%data };
+	     data        => scalar keys %data ? \%data : undef };
 }
 
 #######################################
@@ -360,15 +358,15 @@ sub former_genes {
     my %data;
     foreach my $old_gene ($object->Old_member) {
 	my $gene = $old_gene->Other_name_for || $old_gene->Public_name_for;
-	
-	my $data = $self->_stash_former_member($gene,$old_gene,'reassigned to new class');
+	next unless $gene;
+	my $stashed = $self->_stash_former_member($gene,$old_gene,'reassigned to new class');
 	
 	my $species = $gene->Species;
-	push @{$data{$species}},$data;
+	push @{$data{$species}},$stashed;
     }
     
-    my $data = { description => 'genes formerly in the class that have been reassigned to a new class',
-		 data        => \%data };    
+    return { description => 'genes formerly in the class that have been reassigned to a new class',
+		 data        => scalar keys %data ? \%data : undef };    
 }
 
 
@@ -438,13 +436,12 @@ sub reassigned_genes {
 	my $public_name = $gene->Public_name;
 	my @other_names =  grep { /$public_name/ } $gene->Other_name;
 	foreach (@other_names) {
-	    my $data = $self->_stash_former_member($gene,$_);
-	    push @{$data{$species}},$data;
+	    my $stashed = $self->_stash_former_member($gene,$_);
+	    push @{$data{$species}},$stashed;
 	}
     }
-    my $data = { description => 'genes that have been reassigned a new name in the same class',
-		 data        => \%data };    
-    return $data;
+    return { description => 'genes that have been reassigned a new name in the same class',
+	      data        => scalar keys %data ? \%data : undef };    
 }
 
 
@@ -455,14 +452,15 @@ sub reassigned_genes {
 ##############################
 sub _stash_former_member {
     my ($self,$gene,$old_gene,$reason) = @_;
-    
+    return unless $gene;
+
     my $sequence_name = $gene->Sequence_name;
     my $locus_name    = $gene->Public_name;
     my %data = ( species     => $self->_pack_obj($gene->Species),
-		 former_name => "$old_gene",
-		 new_name    => $self->_pack_obj($gene,$gene->Public_name),
-		 sequence    => ($sequence_name) ? $self->_pack_obj($sequence_name) : undef,
-		 reason      => $reason );
+		 former_name => $old_gene && "$old_gene",
+		 new_name    => $self->_pack_obj($gene,"$locus_name"),
+		 sequence    => $self->_pack_obj($sequence_name),
+		 reason      => $reason && "$reason");
     return \%data;
 }
 

@@ -1,7 +1,6 @@
 package WormBase::API::Object;
 
 use Moose;
-
 use overload '~~' => \&_overload_ace, fallback => 1;
 
 has '_api' => (
@@ -430,77 +429,78 @@ sub _parse_year {
     my $year = $1 || $date;
     return $year;
 }
-sub check_empty {
-  # if flag == 0 meaning empty to the right
-    my ($self,$nodes)=@_;
-    $nodes = [$nodes] unless ref $nodes eq 'ARRAY';
-    my $flag = 0;
-    foreach my $node (@$nodes) {
-	foreach my $type ($node->col) {
-	    $flag = 1;
-	    last;
-	}
-	last if($flag);
-    }
-    return $flag;
-}
+ 
 
-sub evidence {
-  my ($self,$tag)=@_;
-  my @nodes=$self->object->$tag;
-  return $self->_get_evidence(@nodes);
-}
-
+# NOTE: the standarded evidence method, returns a hash ref, in the template call macro evidence(hash ref, index)
+# index is needed when multiple evidence on the same page.
 sub _get_evidence {
-    my ($self,$nodes,$evidence_type)=@_;
-    $nodes = [$nodes] unless ref $nodes eq 'ARRAY';
+    my ($self,$node,$evidence_type)=@_;
+    my @nodes = eval{$node->col} ;
+    return undef unless(@nodes);
     my %data;
 
-    foreach my $node (@$nodes) {
-        next unless $node;
-	foreach my $type ($node->col) {
+   
+	foreach my $type (@nodes) {
+	     
 	    next if ($type eq 'CGC_data_submission') ;
 	     #if only extracting one/more specific evidence types
 	    if(defined $evidence_type) {
 		next unless(grep /^$type$/ , @$evidence_type);
 	    }
+
+        my @evidences;
+
 	    #the goal is to deal label and link seperately?
 	    foreach my $evidence ($type->col) {
-		my $label = $evidence;
-		my $class = eval { $evidence->class } ;
-		if ($type eq 'Paper_evidence') {
-		    my @authors    = eval { $evidence->Author };
-		    my $authors    = @authors <= 2 ? (join ' and ',@authors) : "$authors[0] et al.";
-		    my $year       = $self->_parse_year($evidence->Publication_date);
-		    $label = "$authors, $year";
-		} elsif  ($type eq 'Person_evidence' || $type eq 'Curator_confirmed') {
-		    $label = $evidence->Standard_name;
-		} elsif ($type eq 'Accession_evidence') {
-		    my ($database,$accession) = $evidence->row;
-		    if(defined $accession && $accession) {
-			($evidence,$class) = ($accession,$database);
-			 $label = "$database:$accession";
-		    }     
-		} elsif($type eq 'GO_term_evidence') {
-		    my $desc = $evidence->Term || $evidence->Definition;
-		    $label .= (($desc) ? "($desc)" : '');
-		}elsif ($type eq 'Protein_id_evidence') {
-		    $class = "Entrezp";
-		} elsif ($type eq 'RNAi_evidence') {
-		    $label =  $evidence->History_name? $evidence . ' (' . $evidence->History_name . ')' : $evidence;    
-		} elsif ($type eq 'Date_last_updated') { 
-		    $label =~ s/\s00:00:00//;
-		    undef $class;
-		}  
-# 		$type =~ s/_/ /g;
-		$data{$type}{$evidence}{id} = "$evidence"; 
-		$data{$type}{$evidence}{label} = "$label"; 
-		$data{$type}{$evidence}{class} = lc($class) if(defined $class);
-	    }
+          my $label = $evidence;
+          my $packed;
+          my $class = eval { $evidence->class } ;
+          if($type eq 'Inferred_automatically'){
+              if($node eq 'IMP'){
+                $evidence =~ s/\((WBPhenotype.*)\|(WBRNAi.*)\)//;
+                my ($wb_phene,$wb_rnai) = ($1,$2);
+                if($wb_phene){
+                  $label = $self->_api->fetch({class=>"Phenotype",name=>$wb_phene})->_common_name;
+                  push( @evidences, { id=>$wb_phene, label=>$label, class=>'phenotype'});
+                }
+                if($wb_rnai){
+                    push( @evidences, { id=>$wb_rnai, label=>$wb_rnai, class=>'rnai'});
+                }
+                next;
+              }elsif($node eq 'IEA'){
+                ($class,$evidence) = split /:/, $evidence;
+              }
+          } elsif ($type eq 'Accession_evidence') {
+              my ($database,$accession) = $evidence->row;
+              if(defined $accession && $accession) {
+              if($accession =~ m/\D*\:(\d*)$/){
+                $accession = $1;
+              }
+              ($evidence,$class) = ($accession,$database);
+              $label = "$database:$accession";
+              }else {
+                next;
+              }     
+          } elsif($type eq 'GO_term_evidence') {
+              my $desc = $evidence->Term || $evidence->Definition;
+              $label .= (($desc) ? "($desc)" : '');
+          } elsif ($type eq 'Protein_id_evidence') {
+              $class = "Entrezp";
+          } elsif ($type eq 'RNAi_evidence') {
+              $label =  $evidence->History_name? $evidence . ' (' . $evidence->History_name . ')' : $evidence;    
+          } elsif ($type eq 'Date_last_updated') { 
+              $label =~ s/\s00:00:00//;
+              undef $class;
+          } else {
+              $packed = $self->_pack_obj($evidence);
+          } 
 
+          $class = (defined $class) ? lc("$class") : undef;
+          push( @evidences, $packed ? $packed : { id=> "$evidence", label => "$label", class => $class });
+	    }
+        $data{$type} = \@evidences;
 	}
-    }
-   return \%data;
+   return %data ? \%data :undef;
 }
 
 
@@ -527,6 +527,7 @@ sub _parse_hash {
   return $data;
 }
 
+# DEPRECATED by using _get_evidence
 
 # NOT DONE YET!
 sub _parse_evidence_hash {
@@ -676,6 +677,7 @@ sub _parse_evidence_hash {
   return undef unless $return;
   return $return;
 }
+ 
 
 ## Data is a collection of one or more phenotype
 ## hashes with top-level tags already extracted
@@ -809,6 +811,7 @@ sub _parse_phenotype_hash {
   }
   return $stash;
 }
+
 
 # THIS PROBABLY BELONGS AS A COMPONENT OF THE VIEW INSTEAD OF THE MODEL
 sub _parse_molecular_change_hash {

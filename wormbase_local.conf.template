@@ -30,7 +30,7 @@ google_api_key    = ABQIAAAAX6AZGEUlM28m4mzs0PsGkhRVfLFVmRFz44kSxZwC_XT2TLrxixTV
 enable_ssl        = 1
 
 # REQUIRED FOR PRODUCTION: Base URL
-#base = http://beta.wormbase.org/
+#base = http://www.wormbase.org/
 
 ######################################################
 #
@@ -51,8 +51,8 @@ timer                = 0
 </Plugin::ErrorCatcher>
 
 <Plugin::ErrorCatcher::Email>
-    to      oicr@wormbase.org   
-    from    oicr@wormbase.org 
+    to      you@yourdomain.com
+    from    you@yourdomain.com
     use_tags 1
   #  subject Error Report from: %h; %F, line %l
 </Plugin::ErrorCatcher::Email>

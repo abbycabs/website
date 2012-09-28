@@ -146,22 +146,36 @@ sub variation_type {
         push @types,"Knockout Consortium allele";
     }
 
-    if ($object->SNP) {
-        my $type = 'Polymorphism';
-        $type .= '; RFLP' if $object->RFLP;
-        $type .= $object->Confirmed_SNP ? ' (confirmed)' : ' (predicted)';
-        push @types, $type;
+    # TH: TEMPORARY HACK FOR WS230. Mary Ann will be making these
+    # types explicit in the database.
+    if ($object->Transposon_insertion(0) && !$object->Allele(0)) {
+	push @types,'Transposon Insertion';
+    } elsif ($object->Natural_variant(0) && !$object->SNP(0)) {
+	push @types,'Naturally Occurring Allele'; 
+    } elsif ($object->Natural_variant(0) && $object->SNP(0)) {
+	push @types,'SNP';
+    } elsif ($object->Allele(0) && $object->Natural_variant(0)) {
+	push @types,'Naturally Occurring Allele';
+    } elsif ($object->Allele(0) && $object->Transposon_insertion(0)) {
+	push @types,'Transposon Insertion';
+    } elsif ($object->SNP(0)) {
+	push @types,'SNP';
+    } else {
+	push @types,'Allele';
     }
 
-    if ($object->Natural_variant) {
-        push @types, 'Natural variant';
-    }
+    # Not sure what to do with this at the moment.  Off for now.
+#    if ($object->SNP) {
+#	# handled above.
+##        my $type = 'Polymorphism';
+#	my $type;
+#        $type .= '; RFLP' if $object->RFLP;
+#        $type .= $object->Confirmed_SNP ? ' (confirmed)' : ' (predicted)';
+#        push @types, $type;
+#    }
 
-    if (@types == 0) {
-        push @types,'Allele';
-    }
 
-    my $physical_type = $object->Type_of_mutation; # what about text?
+    my $physical_type = join('/', $object->Type_of_mutation); # what about text?
     if ($object->Transposon_insertion || $object->Method eq 'Transposon_insertion') {
         $physical_type = 'Transposon insertion';
     }
@@ -614,35 +628,24 @@ sub strains {
     my @data;
     my %count;
     foreach ($object->Strain) {
-	my @genes = $_->Gene;
-	my $cgc   = ($_->Location eq 'CGC') ? 1 : 0;
-	
-	my $packed = $self->_pack_obj($_);
-	
-	# All of the counts can go away if
-	# we discard the venn diagram.
-	push @{$count{total}},$packed;
-	push @{$count{available_from_cgc}},$packed if $cgc;
-	
-	if (@genes == 1 && !$_->Transgene){
-	    push @{$count{carrying_gene_alone}},$packed;
-	    if ($cgc) {
-		push @{$count{carrying_gene_alone_and_cgc}},$packed;
-	    }	    
-	} else {
-	    push @{$count{others}},$packed;
-	}       
-	
-	my $genotype = $_->Genotype;
-	push @data, { strain   => $packed,
-		      cgc      => $cgc ? 'yes' : 'no',
-		      genotype => "$genotype",
-	};
+        my @genes = $_->Gene;
+        my $cgc   = ($_->Location eq 'CGC') ? 1 : 0;
+
+        my $packed = $self->_pack_obj($_);
+        my $genotype = $_->Genotype;
+        $packed->{genotype} = $genotype && "$genotype";
+
+        if (@genes == 1 && !$_->Transgene) {
+          $cgc ? push @{$count{carrying_gene_alone_and_cgc}},$packed : push @{$count{carrying_gene_alone}},$packed;
+        } else {
+          $cgc ? push @{$count{available_from_cgc}},$packed : push @{$count{others}},$packed;
+        }
     }
     
-    return { description => 'strains carrying gene',
-	     data        => \@data,
-	     count       => \%count };
+    return {
+        description => 'strains carrying this gene',
+        data       => %count ? \%count : undef,
+    };
 }
 
 
@@ -1039,9 +1042,10 @@ sub mutagen {
     my ($self) = @_;
 
     my $mutagen = $self ~~ 'Mutagen';
+    my $evidence = $self->_get_evidence($mutagen);
     return {
         description => 'mutagen used to generate the variation',
-        data        => $mutagen && "$mutagen",,
+        data        => $evidence && %$evidence ? {text => "$mutagen", evidence => $evidence} : "$mutagen" || undef,
     };
 }
 
@@ -1099,10 +1103,11 @@ B<Response example>
 # Q: What are the contents of this tag?
 sub isolated_via_forward_genetics {
     my ($self) = @_;
-
+    my $forward = $self ~~ 'Forward_genetics';
+    my $evidence = $self->_get_evidence($forward);
     return {
         description => 'was the mutation isolated by forward genetics?',
-        data        => $self ~~ 'Forward_genetics',
+        data        => $evidence && %$evidence ? {text => "$forward", evidence => $evidence} : "$forward" || undef,
     };
 }
 
@@ -1157,13 +1162,14 @@ B<Response example>
 
 =cut 
 
-# Q: what are the contents of this tag?
+# Q: what are the contents of this tag? Text and evidence
 sub isolated_via_reverse_genetics {
     my ($self) = @_;
-
+    my $reverse = $self ~~ 'Reverse_genetics';
+    my $evidence = $self->_get_evidence($reverse);
     return {
         description => 'was the mutation isolated by reverse genetics?',
-        data        => $self ~~ 'Reverse_genetics',
+        data        => $evidence && %$evidence ? {text => "$reverse", evidence => $evidence} : "$reverse" || undef,
     };
 }
 
@@ -1459,11 +1465,20 @@ sub _build_genomic_position {
 
 sub _build_tracks {
     my ($self) = @_;
+    my @tracks;
+    if ($self->_parsed_species eq 'c_elegans') {
+	@tracks = qw(CG Allele TRANSPOSONS SNPs MILLION_MUTATION_PROJECT);
+    } elsif ($self->_parsed_species eq 'c_briggsae') {
+	@tracks = qw(CG SNP);
+    } else {
+	@tracks = qw/WBG/;
+    }
+
     return {
         description => 'tracks displayed in GBrowse',
-        data => [ $self->_parsed_species eq 'c_elegans'
-                  ? qw(CG CANONICAL Allele TRANSPOSONS) : 'WBG' ],
+        data => \@tracks
     };
+
 }
 
 sub _build_genomic_image {
@@ -1570,6 +1585,7 @@ sub sequencing_status {
     my ($self) = @_;
     
     my $status = $self ~~ 'SeqStatus';
+    $status =~ s/_/ /g;
     return {
         description => 'sequencing status of the variation',
         data        => $status && "$status",
@@ -1642,6 +1658,70 @@ sub nucleotide_change {
     my $variations = $self->_compile_nucleotide_changes($self->object);
     return {
         description => 'raw nucleotide changes for this variation',
+        data        => @$variations ? $variations : undef,
+    };
+}
+
+
+=head3 amino_change
+
+This method returns a data structure containing the amino
+acid change (and transcript IDs) for nonsense and missense
+alleles.
+
+=over
+
+=item PERL API
+
+ $data = $model->amino_acid_change();
+
+=item REST API
+
+B<Request Method>
+
+GET
+
+B<Requires Authentication>
+
+No
+
+B<Parameters>
+
+a Variation public name or WBID (eg WBVar00143133)
+
+B<Returns>
+
+=over 4
+
+=item *
+
+200 OK and JSON, HTML, or XML
+
+=item *
+
+404 Not Found
+
+=back
+
+B<Request example>
+
+curl -H content-type:application/json http://api.wormbase.org/rest/field/variation/WBVar00143133/amino_acid_change
+
+B<Response example>
+
+<div class="response-example"></div>
+
+=back
+
+=cut 
+
+sub amino_acid_change {
+    my ($self) = @_;
+    
+    # Amino acid changes (potentially) for each transcript.
+    my $variations = $self->_compile_amino_acid_changes($self->object);
+    return {
+        description => 'amino acid changes for this variation, if appropriate',
         data        => @$variations ? $variations : undef,
     };
 }
@@ -1775,10 +1855,10 @@ sub cgh_deleted_probes {
     
     return {
         description => 'probes used for CGH of deletion alleles',
-        data        => {
+        data        => ($left_flank || $right_flank) ? {
             left_flank  => $left_flank && "$left_flank",
             right_flank => $left_flank && "$right_flank",
-        },
+        } : undef,
     };
 }
 
@@ -1845,14 +1925,14 @@ sub context {
     my ($wt,$mut,$wt_full,$mut_full,$debug)  = $self->_build_sequence_strings;
     return {
         description => 'wildtype and mutant sequences in an expanded genomic context',
-        data        => {
+        data        => ($wt || $wt_full || $mut || $mut_full) ? {
             wildtype_fragment => $wt,
             wildtype_full     => $wt_full,
             mutant_fragment   => $mut,
             mutant_full       => $mut_full,
-            wildtype_header   => "> Wild type N2, with $flank bp flanks",
-            mutant_header     => "> $name with $flank bp flanks"
-        },
+            wildtype_header   => "Wild type N2, with $flank bp flanks",
+            mutant_header     => "$name with $flank bp flanks"
+        } : undef,
     };
 }
 
@@ -1909,10 +1989,11 @@ B<Response example>
 
 sub deletion_verification {
     my ($self) = @_;
-    
+    my $deletion = $self ~~ 'Deletion_verification';
+    my $evidence = $self->_get_evidence($deletion);
     return {
         description => 'the method used to verify deletion alleles',
-        data        => $self ~~ 'Deletion_verification',
+        data        => $evidence ? {text => "$deletion", evidence => $evidence } : "$deletion" || undef,
     };
 }
 
@@ -1977,17 +2058,20 @@ sub features_affected {
     # This is mostly constructed from Molecular_change hash associated with
     # tags in Affects, with the exception of Clone and Chromosome
     my $affects = {};
+#     my @affects;
     
     # Clone and Chromosome are calculated, not provided in the DB.
     # Feature and Interactor are handled a bit differently.
     
     foreach my $type_affected ($object->Affects) {
+        my @rows;
         foreach my $item_affected ($type_affected->col) { # is a subtree
-            my $affected_hash = $affects->{$type_affected}->{$item_affected} = $self->_pack_obj($item_affected);
-	    
+            my $affected_hash  = $self->_pack_obj($item_affected);
+            $affected_hash->{item} = $self->_pack_obj($item_affected);
             # Genes ONLY have gene
             if ($type_affected eq 'Gene') {
                 $affected_hash->{entry}++;
+            push(@rows, $affected_hash);
                 next;
             }
 
@@ -2018,7 +2102,9 @@ sub features_affected {
             # and the coordinates of the variation WITHIN the feature.
             @{$affected_hash}{qw(abs_start abs_stop fstart fstop start stop)}
                  = $self->_fetch_coords_in_feature($type_affected,$item_affected);
+            push(@rows, $affected_hash);
         }
+$affects->{$type_affected} = \@rows;
     } # end of FOR loop
 
     # Clone and Chromosome are not provided in the DB - we calculate them here.
@@ -2026,14 +2112,17 @@ sub features_affected {
         my @affects_this = $type_affected eq 'Clone'      ? $object->Sequence
                          : $type_affected eq 'Chromosome' ? eval {($object->Sequence->Interpolated_map_position)[0]}
                          :                        ();
-
+        my @rows;
         foreach (@affects_this) {
             next unless $_;
             my $hash = $affects->{$type_affected}->{$_} = $self->_pack_obj($_);
-
+# $affects->{$type_affected}->{$_}
             @{$hash}{qw(abs_start abs_stop fstart fstop start stop)}
                 = $self->_fetch_coords_in_feature($type_affected,$_);
+            $hash->{item} = $self->_pack_obj($_);
+            push(@rows, $hash);
         }
+        $affects->{$type_affected} = \@rows;
     }
 
     return {
@@ -2416,8 +2505,7 @@ sub polymorphism_type {
     my $object = $self->object;
 
     # What type of polymorphism is this?
-    my $type = $object->SNP && $object->RFLP ? 'SNP and RFLP'
-             : $object->SNP                  ? 'SNP'
+    my $type = $object->SNP ? $object->RFLP ?  'SNP and RFLP' : 'SNP'
              : $object->Transposon_insertion ? $object->Transposon_insertion
                                                . ' transposon insertion'
              :                                 undef;
@@ -2481,8 +2569,9 @@ B<Response example>
 
 sub polymorphism_status {
     my ($self) = @_;
+    my $object = $self->object;
 
-    my $status = $self ~~ 'Confirmed_SNP' ? 'confirmed' : 'predicted';
+    my $status = $self ~~ 'Confirmed_SNP' ? 'confirmed' : ($object->SNP || $object->RFLP || $object->Transposon_insertion) ? 'predicted' : undef;
     return {
         description => 'experimental status of this polymorphism',
         data        => $status,
@@ -2653,7 +2742,7 @@ sub polymorphism_assays {
 
         my $dna;
 
-        if (my $pcr_node = first {$_ eq $pcr_product} $sequence->PCR_product) {{
+        if ($sequence && (my $pcr_node = first {$_ eq $pcr_product} $sequence->PCR_product)) {
             my ($start, $stop) = $pcr_node->row or last;
             my $gffdb = $self->gff_dsn or last;
             my ($segment) = eval { $gffdb->segment(
@@ -2664,11 +2753,11 @@ sub polymorphism_assays {
 
             $dna = $segment->dna;
 	    }
-	}
+	
         $pcr_data{pcr_product} = $self->_pack_obj(
             $pcr_product, undef, # let _pack_obj resolve label
             left_oligo     => $left_oligo && "$left_oligo",
-            right_oligo    => $right_oligo && "right_oligo",
+            right_oligo    => $right_oligo && "$right_oligo",
             pcr_conditions => $pcr_conditions && "$pcr_conditions",
             dna            => $dna && "$dna",
         );
@@ -2747,11 +2836,35 @@ B<Response example>
 sub nature_of_variation {
     my ($self) = @_;
     
-    my $nature = $self ~~ 'Nature_of_variation';
+    # WS230: Mary Ann is cleaning this up. For now we need to.
+    # use this heuristic
+    my $variation = $self->object;
+    my $nature;
+    if ($variation->Transposon_insertion(0) && !$variation->Allele(0)) {
+	$nature = 'Transposon Insertion';
+    } elsif ($variation->Natural_variant(0) && !$variation->SNP(0)) {
+	$nature = 'Naturally Occurring Allele'; 
+    } elsif ($variation->Natural_variant(0) && $variation->SNP(0)) {
+	$nature = 'SNP';
+    } elsif ($variation->Allele(0) && $variation->Natural_variant(0)) {
+	$nature = 'Naturally Occurring Allele';
+    } elsif ($variation->Allele(0) && $variation->Transposon_insertion(0)) {
+	$nature = 'Transposon Insertion';
+    } elsif ($variation->SNP(0)) {
+	$nature = 'SNP';
+    } else {
+	$nature = 'Allele';
+    }
     return {
-        description => 'nature of the variation',
-        data        => $nature && "$nature",
+	description => 'nature of the variation',
+	data        => $nature && "$nature",
     };
+    
+#    my $nature = $self ~~ 'Nature_of_variation';
+#    return {
+#        description => 'nature of the variation',
+#        data        => $nature && "$nature",
+#    };
 }
 
 =head3 dominance
@@ -2988,6 +3101,17 @@ sub _retrieve_molecular_changes {
         @change_data{@$keys, 'evidence_type', 'evidence'}
 	= map {"$_"} @raw_change_data;
 
+	# This should be handled by change_data above. Oh well.
+	if ($change_type eq 'Missense') {
+	    my ($aa_position,$aa_change_string) = $change_type->right->row;
+	    $aa_change_string =~ /(.*)\sto\s(.*)/;
+	    $change_data{aa_change} = "$1$aa_position$2";
+	}  elsif ($change_type eq 'Nonsense') {
+	    # "Position" here really one of Amber, Ochre, etc.
+	    my ($aa_position,$aa_change) = $change_type->right->row;
+	    $change_data{aa_change} = "$aa_change";
+	}
+
         if ($associated_meta{$change_type}) { # only protein effects have extra data
             $protein_effects{$change_type} = \%change_data;
         }
@@ -2999,6 +3123,37 @@ sub _retrieve_molecular_changes {
     return (\%protein_effects, \%location_effects, $do_translation);
 }
 } # end of _retrieve_molecular_changes block
+
+
+
+sub _compile_amino_acid_changes {
+    my ($self, $object) = @_;
+
+    my @data;
+    foreach my $type_affected ($object->Affects) {
+        foreach my $item_affected ($type_affected->col) { # is a subtree	    
+	    foreach my $change_type ($item_affected->col) {		
+		# This should be handled by change_data above. Oh well.
+		my $aa_change;
+		if ($change_type eq 'Missense') {
+		    my ($aa_position,$aa_change_string) = $change_type->right->row;
+		    $aa_change_string =~ /(.*)\sto\s(.*)/;
+		    $aa_change = "$1$aa_position$2";
+		}  elsif ($change_type eq 'Nonsense') {
+		    # "Position" here really one of Amber, Ochre, etc.
+		    my ($aa_position,$aa_change_string) = $change_type->right->row;
+		    $aa_change = "$aa_change";
+		}
+		if ($aa_change) {
+		    push @data,{ transcript => $self->_pack_obj($item_affected),
+				 amino_acid_change => "$aa_change" };
+		}
+	    }
+	}
+    }
+    return \@data;
+}
+
 
 
 # What is the length of the mutation?
@@ -3076,7 +3231,7 @@ sub _compile_nucleotide_changes {
             wildtype       => "$wt",
             mutant         => "$mut",
             wildtype_label => $wt_label,
-            mutant_label   => $mut_label,
+            mutant_label   => "$mut_label",
         };
     }
     return \@variations;
@@ -3178,10 +3333,10 @@ sub _do_markup {
     $markup->add_style('cds0'  => 'BGCOLOR yellow');
     $markup->add_style('cds1'  => 'BGCOLOR orange');
     $markup->add_style('space' => ' ');
-    $markup->add_style('substitution' => 'text-transform:uppercase; background-color: red;');
-    $markup->add_style('deletion'     => 'background-color:red; text-transform:uppercase;');
-    $markup->add_style('insertion'     => 'background-color:red; text-transform:uppercase;');
-    $markup->add_style('deletion_with_insertion'  => 'background-color: red; text-transform:uppercase');
+    $markup->add_style('substitution' => 'text-transform:uppercase; background-color: #FF8080;');
+    $markup->add_style('deletion'     => 'background-color:#FF8080; text-transform:uppercase;');
+    $markup->add_style('insertion'     => 'background-color:#FF8080; text-transform:uppercase;');
+    $markup->add_style('deletion_with_insertion'  => 'background-color: #FF8080; text-transform:uppercase');
     if ($object->Type_of_mutation eq 'Insertion') {
         $markup->add_style('flank' => 'background-color:yellow;font-weight:bold;text-transform:uppercase');
     }
@@ -3194,7 +3349,10 @@ sub _do_markup {
     my $var_stop = length($variation) + $var_start;
 
     # Substitutions start and stop at the same position
-    $var_start = ($var_stop - $var_start == 0) ? $var_start - 1 : $var_start;
+    if ($var_stop == $var_start) {
+      $seq = substr($seq, 0, $var_start) . '-' . substr($seq, $var_stop);
+      $var_stop++;
+    }
 
     # Markup the variation as appropriate
     push (@markup,[lc($object->Type_of_mutation),$var_start,$var_stop]);
@@ -3420,7 +3578,6 @@ sub _build_sequence_strings {
 
     my $wt_full = $self->_do_markup($dna,$mutation_start,$wt_plus,length($reported_left_flank));
     my $mut_full = $self->_do_markup($mut_dna,$mutation_start,$mut_plus,length($reported_right_flank));
-
     # TO DO: This markup belongs as part of the view, not here.
     # Return the full sequence on the plus strand
     # if ($with_markup) {
