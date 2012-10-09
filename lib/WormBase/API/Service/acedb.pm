@@ -51,7 +51,7 @@ sub connect {
     # my $conf = $self->conf;
 
     my %options = (
-        name => 'ws228', # hardcode for now
+        name => 'ws233', # hardcode for now
     );
 
     my $dbh = WormBase::Ace->connect(%options)
