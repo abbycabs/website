@@ -2,6 +2,11 @@
       wildtype_length = 0;
       mutant_length = 0;
 
+MACRO highlight_seq(sequence, probe, colour) BLOCK;
+  probe = probe.chunk(1).join('\s?') FILTER lower;
+  sequence.replace('(' _ probe _ ')', '<span style="background:' _ colour _ '">$1</span>');
+END;
+
 WRAPPER $field_block title="Variation Type" key='variation_type';
       fields.variation_type.data.general_class.join('; ');
       IF fields.variation_type.data.physical_class; ': '; END;
@@ -131,15 +136,36 @@ WRAPPER $field_block title="Nucleotide Change" key="nucleotide_change";
       '<p class="caveat-emptor">Note: sequence is reported on the (+) strand.<br />';
 
       '<span class="sequence-container" style="background-color:#FF8080">red</span> = mutation <br />';
-      '<span class="sequence-container" style="background-color:yellow">yellow</span> = flanking sequence <br /></p>';
+      '<span class="sequence-container" style="background-color:yellow">yellow</span> = flanking sequence <br />';
+      wildtype.sequence = fields.context.data.wildtype_full;
+      mutant.sequence = fields.context.data.mutant_full;
+
+      IF fields.cgh_deleted_probes.data;
+      '<span class="sequence-container" style="background-color:#80FF80">green</span> = CGH deleted probe <br />';
+        wildtype.sequence = highlight_seq(wildtype.sequence, fields.cgh_deleted_probes.data.left_flank, '#80FF80') IF fields.cgh_deleted_probes.data.left_flank;
+        wildtype.sequence = highlight_seq(wildtype.sequence, fields.cgh_deleted_probes.data.right_flank, '#80FF80') IF fields.cgh_deleted_probes.data.right_flank;
+      END;
+
+      IF fields.cgh_flanking_probes.data;
+      '<span class="sequence-container" style="background-color:#80FFFF">blue</span> = CGH flanking probe <br />';
+        IF fields.cgh_flanking_probes.data.left_flank; 
+          wildtype.sequence = highlight_seq(wildtype.sequence, fields.cgh_flanking_probes.data.left_flank, '#80FFFF'); 
+          mutant.sequence = highlight_seq(mutant.sequence, fields.cgh_flanking_probes.data.left_flank, '#80FFFF'); 
+        END; 
+        IF fields.cgh_flanking_probes.data.right_flank; 
+          wildtype.sequence = highlight_seq(wildtype.sequence, fields.cgh_flanking_probes.data.right_flank, '#80FFFF'); 
+          mutant.sequence = highlight_seq(mutant.sequence, fields.cgh_flanking_probes.data.right_flank, '#80FFFF'); 
+        END; 
+      END;
+      '</p>';
+
 
       wildtype_length = (wildtype_length > 4000) ? 0 : 1;
       mutant_length = (mutant_length > 4000) ? 0 : 1;
 
-      wildtype.sequence = fields.context.data.wildtype_full;
+
       wildtype.header = "wild type, with 250 bp flanks";
       sequence(wildtype, '', wildtype_length);
-      mutant.sequence = fields.context.data.mutant_full;
       mutant.header =  markup_var(object.name.data.label, 1) _" with 250 bp flanks";
       sequence(mutant, '', mutant_length);
 

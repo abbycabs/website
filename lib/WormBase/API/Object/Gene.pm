@@ -649,9 +649,9 @@ sub gene_class {
     
     return {
     description => "The gene class for this gene",
-    data        => { tag => $self->_pack_obj($gene_class),
+    data        => $gene_class ? { tag => $self->_pack_obj($gene_class),
                      description => $gene_class ? $gene_class->Description : '',
-    }};
+    } : undef };
 }
 
 
@@ -1771,8 +1771,8 @@ sub _process_variation {
     my $type = lc( join ', ', $variation->Variation_type ) || 'unknown';
 
     my $molecular_change = lc( $variation->Type_of_mutation || "other" );
-    my $sequence_known = $variation->Flanking_sequences ? 'yes' : 'no';
 
+    my @phens = $variation->Phenotype;
     my %effects;
     my %locations;
     my ($aa_change,$aa_position);
@@ -1807,8 +1807,8 @@ sub _process_variation {
         type             => $type && "$type",
         molecular_change => $molecular_change && "$molecular_change",
 	aa_change        => $aa_change ? $aa_change : undef,
-        sequence_known   => $sequence_known,
         effects          => @effect ? \@effect : undef,
+        phen_count       => scalar @phens || 0,
 	locations	 => @location ? \@location : undef,
     );
     return \%data;
@@ -2578,40 +2578,27 @@ B<Response example>
 
 =cut
 
-{ # closure for human_diseases
-    my $built_hashes;
-    my $gene2omim;
-    my $omim2disease_desc;
-    my $omim2disease_name;
 
-    # THIS SERIOUSLY NEEDS TO BE FIXED.
+sub human_diseases {
+  my $self = shift;
+  my $object = $self->object;
+  my @data = grep { $_ eq 'OMIM' } $object->DB_info->col; 
+  my $search = $self->_api->xapian;
 
-    # the above is a temporary fix; at least the files will be loaded
-    #   in once only... a more permanent solution would be a database, even if
-    #   a simple one based on BDB or SQLite. -AD
-    sub human_diseases {
-        my $self = shift;
-
-        unless ($built_hashes) {
-            my $orthology_datadir = catdir($self->pre_compile->{base}, $self->ace_dsn->version, 'orthology');
-            $gene2omim         ||= _build_hash(catfile($orthology_datadir, 'gene_id2omim_ids.txt'));
-            $omim2disease_desc ||= _build_hash(catfile($orthology_datadir, 'omim_id2disease_desc.txt'));
-            $omim2disease_name ||= _build_hash(catfile($orthology_datadir, 'omim_id2disease_name.txt'));
-            $built_hashes = 1;
-        }
-
-        my @data_pack = map {
-            omim_id 	=> $_,
-            disease 	=> $omim2disease_name->{$_},
-            description => $omim2disease_desc->{$_},
-        }, split /%/, ($gene2omim->{$self->object} || ''); # note the comma for map!
-
-        return {
-            data        => @data_pack ? \@data_pack : undef,
-            description => 'Diseases related to the gene',
-        };
+  my %data;
+  if($data[0]){
+    foreach my $type ($data[0]->col) {
+      $data{$type} = ();
+      foreach my $disease ($type->col){
+        push (@{$data{$type}}, $search->_get_tag_info($self->_api, $disease, 'disease') || $disease)
+      }
     }
+  }
 
+  return {
+      description => 'Diseases related to the gene',
+      data        => %data ? \%data : undef,
+  };
 }
 
 =head3 protein_domains

@@ -1166,9 +1166,10 @@ sub _build_phenotypes_data {
     return [ map {
         my $desc = $_->Description;
         my $remark = $_->Remark;
+        my $ev = $self->_get_evidence($_);
         {
             phenotype   => $self->_pack_obj($_),
-            evidence => { evidence => $self->_get_evidence($_)},
+            evidence => $ev ? {evidence => $ev} : undef,
             description => $desc    && "$desc",
             remarks     => $remark && "$remark",
         };
@@ -1765,8 +1766,8 @@ sub _build_status {
 	: (eval{$object->Status} ? $object->Status : 'unverified');
 
     return {
-        description => "current status of the $class:$object if not Live",
-        data        => $status && (($status eq 'Live') ? undef : "$status"),
+        description => "current status of the $class:$object if not Live or Valid",
+        data        => $status && (($status eq 'Live' || $status eq 'Valid') ? undef : "$status"),
     };
 }
 

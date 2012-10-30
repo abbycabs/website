@@ -6,7 +6,7 @@
    <form method="post"  id="searchResultForm" action="" onsubmit="WB.search('SearchResult'); return false;">
     <div id="searchBody" class="ui-corner-all">
 
-    [% cls_list = c.config.sections.species.keys.merge(c.config.sections.resources.keys) %]
+    [% cls_list = c.config.sections.species.keys.merge(c.config.sections.resources.keys).sort.grep('[^title]') %]
 
       <ul id="searchSelect">
         <li>
@@ -28,14 +28,15 @@
         <li>
           <span class="ui-icon ui-icon-triangle-1-s" style="float:right;margin-top:0.2em"></span>
           <span class="current-search" style="float:right">for anything</span>
-          <ul>
-
-          [% FOREACH cls IN cls_list.sort  %]
-              [% IF cls == 'title'; NEXT; END; %]
-              <li value="[% cls %]" onClick='WB.search_change("[% cls %]");'><a>[% c.config.sections.species.$cls.title || c.config.sections.resources.$cls.title%]</a></li>
+          [% row_size = (cls_list.size div 3) + ( ((cls_list.size mod 3) > 1) ? 1 : 0) %]
+          [% FOREACH amt IN [0..2] %]
+            <ul style="float:right;margin-right:[% (amt * 7.5) %]em;">
+            [% i = ((2-amt) * row_size) %]
+            [% FOREACH cls IN cls_list.slice( i ,  i + row_size - 1)  %]
+                <li value="[% cls %]" onClick='WB.search_change("[% cls %]");'><a>[% c.config.sections.species.$cls.title || c.config.sections.resources.$cls.title%]</a></li>
+            [% END %]
+            </ul>
           [% END %]
-
-          </ul>
         </li>
       </ul>
 
@@ -53,23 +54,30 @@
       </h2>
       </div>
     <div style="height:25em; max-width:50em">
-
 <br /><br />
 <h3>Classes</h3>
-          [% FOREACH cls IN cls_list.sort  %]
-              [% IF cls == 'title'; NEXT; END; %]
-              <a href="javascript:void(0)" onClick='WB.search_change("[% cls %]");' style="white-space:nowrap;">[% c.config.sections.species.$cls.title || c.config.sections.resources.$cls.title || cls %]</a>&nbsp; &bull; &nbsp;
+          [% row_size = (cls_list.size div 5) + ( ((cls_list.size mod 5) > 1) ? 1 : 0) %]
+          [% FOREACH amt IN [0..4] %]
+            <div style="float:left;padding-right:1em;">
+            [% i = (amt * row_size) %]
+            [% FOREACH cls IN cls_list.slice( i ,  i + row_size - 1)  %]
+              <a href="javascript:void(0)" onClick='WB.search_change("[% cls %]");' style="white-space:nowrap;">[% c.config.sections.species.$cls.title || c.config.sections.resources.$cls.title || cls %]</a><br />
+            [% END %]
+            </div>
           [% END %]
-<br /> <br />
+
+<br style="clear:both"/> <br />
 <h3>Species</h3>
-        [% FOREACH s IN c.config.sections.species_list.keys.sort %]
-          [% IF c.config.sections.species_list.$s.display_in_dropdown == 'yes' %]
-            <a class="species" href="javascript:void(0)" onClick='WB.search_species_change("[% s %]");' style="white-space:nowrap;">[% c.config.sections.species_list.$s.title %]</a>&nbsp; &bull; &nbsp;
+          [% spe_list = c.config.sections.species_list.keys.sort %]
+          [% row_size = (spe_list.size div 5) + ( ((spe_list.size mod 5) > 1) ? 1 : 0) %]
+          [% FOREACH amt IN [0..4] %]
+            <div style="float:left;padding-right:1em;">
+            [% i = (amt * row_size) %]
+            [% FOREACH s IN spe_list.slice( i ,  i + row_size - 1)  %]
+            <a class="species" href="javascript:void(0)" onClick='WB.search_species_change("[% s %]");' style="white-space:nowrap;">[% c.config.sections.species_list.$s.title %]</a><br />
+            [% END %]
+            </div>
           [% END %]
-        [% END %]
-
-
-
 
 </div>
   [% RETURN %]

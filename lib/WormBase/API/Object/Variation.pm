@@ -1857,10 +1857,30 @@ sub cgh_deleted_probes {
         description => 'probes used for CGH of deletion alleles',
         data        => ($left_flank || $right_flank) ? {
             left_flank  => $left_flank && "$left_flank",
-            right_flank => $left_flank && "$right_flank",
+            right_flank => $right_flank && "$right_flank",
         } : undef,
     };
 }
+
+
+sub cgh_flanking_probes {
+    my ($self) = @_;
+    my $object = $self->object;
+    
+    my $left_flank  = $object->CGH_flanking_probes(1);
+    my $right_flank = $object->CGH_flanking_probes(2);
+    
+$self->log->debug("LEFT FLANK: $left_flank");
+$self->log->debug("RIGHT FLANK: $right_flank");
+    return {
+        description => 'probes used for CGH of deletion alleles',
+        data        => ($left_flank || $right_flank) ? {
+            left_flank  => $left_flank && "$left_flank",
+            right_flank => $right_flank && "$right_flank",
+        } : undef,
+    };
+}
+
 
 =head3 context
 
@@ -3344,7 +3364,6 @@ sub _do_markup {
         $markup->add_style('flank' => 'background-color:yellow');
     }
     # The extra space is required here when used in non-pre-formatted text!
-    $markup->add_style('newline',"<br> ");
 
     my $var_stop = length($variation) + $var_start;
 
@@ -3360,12 +3379,12 @@ sub _do_markup {
     # Add spacing for peptides
     if ($is_peptide) {
         for (my $i=0; $i < length $seq; $i += 10) {
-            push @markup,[$i % 80 ? 'space' : 'newline',$i];
+            push @markup,[$i % 80 ? 'space' : 'space',$i];
         }
     }
     else {
         for (my $i=80; $i < length $seq; $i += 80) {
-            push @markup,['newline',$i];
+            push @markup,['space',$i];
         }
         #       push @markup,map {['newline',80*$_]} (1..length($seq)/80);
     }
@@ -3455,11 +3474,11 @@ sub _build_sequence_strings {
         # plus strand?
 
         # Insertions will have no sequence and I should not be able to
-        # extract any either (We use logical or here to check for the
+        # extract any either (We use logical "or" here to check for the
         # $strand flag. Sometimes insertions or deletions will have no
         # sequence.
 
-        if ($wt eq $extracted_wt && $strand ne '-') {
+        if (($wt eq $extracted_wt && $strand ne '-') || ($type =~ /insertion/i)) {
             # Yes, it has.  Do nothing.
         }
         else {

@@ -105,7 +105,7 @@
         END;
 
         IF downloadable(class);
-          "<a href='" _ c.uri_for('/rest/widget', class, id, 'sequences').path  _ '?colorbox=1' _ "' class='button ui-corner-all tl slink' data-class='$class' tip='download sequence'>";
+          "<a href='" _ c.uri_for('/rest/widget', class, id, 'sequences').path  _ '?colorbox=1' _ "' class='button ui-corner-all tl slink' data-class='$class' tip='view sequence'>";
             "<span class='ui-icon ui-icon-arrowthickstop-1-s ui-button'></span>";
           "</a>";
         END;
@@ -128,11 +128,14 @@
     END;
 
 
-    MACRO gbrowselink(data, label) BLOCK;
+    MACRO gbrowselink(data, label, search) BLOCK;
       valid_classes = ['gene', 'variation', 'sequence', 'transcript'];
       IF data.taxonomy && (valid_classes.grep(data.class).size > 0);
         url = c.uri_for('/tools', 'genome', 'gbrowse', data.taxonomy).path _ '?name=' _ item.name.class _ ":" _ item.name.id;
         label ? "<a href=\"$url\">$label</a>" : "<span id='fade'>[<a href=\"$url\">gbrowse</a>]</span>";
+      ELSIF(!search);
+        url = c.uri_for('/tools', 'genome', 'gbrowse', data.taxonomy).path;
+        data.label ? "<a href=\"$url\">" _ data.label _ "</a>" : "<span id='fade'>[<a href=\"$url\">gbrowse</a>]</span>";
       END;
     END;
 
