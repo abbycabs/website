@@ -72,6 +72,6 @@ significantly slower than the simple pattern.
 # NO FILE CACHE. GIVES ENOUGH HEADACHES.
 sub cache {}
 
-sub version { return 'WS233' }
+sub version { return 'WS234' }
 
 1;
