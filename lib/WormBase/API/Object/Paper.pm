@@ -32,7 +32,10 @@ has '_authors' => (
 	lazy => 1,
 	default => sub {
 		my ($self) = @_;
-		return $self ~~ '@Author';
+        my $x_obj = $self->_api->xapian->_get_tag_info($self, $self->object, 'paper',1);
+		my @authors =  @{$self ~~ '@Author'};
+        my @ret = map { my $auth = $_; grep { $_ eq $auth->{label} } @authors; } @{$x_obj->{author}};
+        return \@ret;
 	},
 );
 
