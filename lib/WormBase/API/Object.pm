@@ -290,7 +290,7 @@ sub best_phenotype_name {
   my $name = ($phenotype =~ /WBPheno.*/) ? $phenotype->Primary_name : $phenotype;
   $name =~ s/_/ /g;
   $name =  $phenotype->Short_name . " ($name)" if $phenotype->Short_name;
-  return $name;
+  return "$name";
 }
 
 
@@ -955,8 +955,14 @@ sub _covered {
 
 
 
-
-
+# Sometimes, calling a tag on an Ace object will crash
+# the app. This gets the count of everything right of the passed tag
+sub _get_count{
+  my $self = shift;
+  my $obj = shift;
+  my $first_item = $obj->right;
+  return ($first_item->{'.end_row'} || return -1) - ($first_item->{'.start_row'} || 0) + 1;
+}
 
 
 # The rearrange helper method

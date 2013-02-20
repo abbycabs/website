@@ -39,6 +39,7 @@ BEGIN {
             Cds       => [qw(CDS cds)],
             Rnai      => 'RNAi',
             Go_term   => 'GO_term',
+            Wbprocess => 'WBProcess',
         },
         # the following are the tags for extracting a "common" or "public" name
         # for objects automatically. when adding a new one, please consider
@@ -59,6 +60,7 @@ BEGIN {
             Motif        => 'Title',
 #            Protein      => 'Gene_name',
             Rnai         => 'History_name',
+            WBProcess	 => 'Public_name',
         },
         laboratory => {
             Gene_class  => 'Designating_laboratory',

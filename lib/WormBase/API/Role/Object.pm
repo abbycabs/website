@@ -186,7 +186,7 @@ sub _make_common_name {
             $name = $self->_api->wrap($object)->_common_name; 
         }
     }
-
+    $name //= eval { $self->ace_dsn->dbh->raw_fetch($object, "Public_name"); };
 	$name //= $object->name;
     return $name; # caution: $name should be a string!
 }
@@ -1558,7 +1558,7 @@ sub _build_remarks {
     my $object = $self->object;
 
     #    my @remarks = grep defined, map { $object->$_} qw/Remark/;
-    my @remarks = eval { $object->Remark };
+    my @remarks = eval { $object->get('Remark') };
     my $class   = $object->class;
 
     # Need to add in evidence handling.
@@ -1850,7 +1850,7 @@ B<Response example>
 # template [% xrefs %]
 
 has 'xrefs' => (
-    is       => 'ro',
+    is       => 'rw',
     required => 1,
     lazy     => 1,
     builder  => '_build_xrefs',
@@ -1858,8 +1858,8 @@ has 'xrefs' => (
 
 # XREFs are stored under the Database tag.
 sub _build_xrefs {
-    my ($self) = @_;
-    my $object = $self->object;
+    my ($self,$object) = @_;
+    $object = $self->object unless $object;
 
     my @databases = $object->Database;
     my %dbs;
@@ -1872,15 +1872,10 @@ sub _build_xrefs {
 #         my $remote_text     = $db->right;
 # 	$url_constructor =~ s/<Gene&RNAID>$/\%s/ ;
         # Possibly multiple entries for a single DB
-	@{$dbs{$db}{ids}} = map {
-	    my @types = $_->col;
-	    map { 
-		my $val = $_;
-		if ($val =~ /OMIM:(.*)/) {"$1"}
-		elsif ($val =~ /GI:(.*)/){"$1"}
-		else { "$_" }
-	    } @types;
-	} $db->col;
+      $dbs{$db} = {};
+      foreach my $dbt ($db->col){
+        @{$dbs{$db}{$dbt}{ids}} = map {( $_ =~ /^(OMIM:|GI:)(.*)/ ) ? "$2" : $_;} $dbt->col;
+      }
     }
 
     return {
@@ -1967,7 +1962,7 @@ sub tmp_acedata_dir {
 }
 
 # A simple array would probably suffice instead of a hash
-# (whcih is used in the view for sorting).
+# (which is used in the view for sorting).
 # We could sort objects in view according to name key 
 # supplied by _pack_obj but might be messy to change now.
 sub _pack_objects {
@@ -1977,6 +1972,9 @@ sub _pack_objects {
     return {map {$_ => $self->_pack_obj($_)} @$objects};
 }
 
+## 	Parameters:
+#	object: the Ace::Object to be linked to
+#	(label): link text
 sub _pack_obj {
     my ($self, $object, $label, %args) = @_;
     return undef unless $object; # this method shouldn't expect a list.
@@ -2019,7 +2017,7 @@ sub _split_genus_species {
 ############################################################
 
 
-# Description: checks data returned by extenral model for standards
+# Description: checks data returned by external model for standards
 #              compliance and fixes the data if necessary and possible.
 #              the fixing is very rudimentary and can be bypassed by intra-model
 #              invocations of methods. do not depend on it. fix your model code.
@@ -2251,17 +2249,18 @@ sub _get_genotype {
     my ($self, $object) = @_;
     my $genotype = $object->Genotype;
 
-    my @data;
-    my @matches;
     my %elements;
     foreach my $tag ($object->Contains) {
-	map {my $name = $self->_make_common_name($_); $elements{"$name"} = $self->_pack_obj($_)} $object->$tag;
+      map {
+        $_ = $self->_pack_obj($_);
+        $elements{$_->{label}} = $_;
+      } $object->$tag;
     }
 
-    return {
-	str => "$genotype" || undef,
-	data => %elements ? \%elements : undef,
-    };
+    return ($genotype || (keys %elements > 0) ) ? {
+      str => $genotype && "$genotype",
+      data => %elements ? \%elements : undef,
+    } : undef;
 }
 
 #########################################

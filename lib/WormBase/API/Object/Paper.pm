@@ -55,21 +55,11 @@ has '_parsed_authors' => (
 #
 #######################################
 
-=head1 CLASS LEVEL METHODS/URIs
-
-=cut
-
-
 #######################################
 #
 # INSTANCE METHODS
 #
 #######################################
-
-=head1 INSTANCE LEVEL METHODS/URIs
-
-=cut
-
 
 #######################################
 #
@@ -77,69 +67,18 @@ has '_parsed_authors' => (
 #
 #######################################
 
-=head2 Overview
-
-=cut
-
-# sub name { }
-# Supplied by Role; POD will automatically be inserted here.
-# << include name >>
+# name { }
+# Supplied by Role
 
 sub _build__common_name {
     my ($self) = @_;
     return $self->intext_citation->{data}{citation} // $self->object->name;
 }
 
-=head3 title
-
-This method will return a data structure containing
-the title of the paper.
-
-=over
-
-=item PERL API
-
- $data = $model->title();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/title
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# title { }
+# This method will return a data structure containing
+# the title of the paper.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/title
 
 sub title {
     my ($self) = @_;
@@ -152,56 +91,10 @@ sub title {
 }
 
 
-=head3 journal
-
-This method will return a data structure containing
-the journal the paper was published in, if appropriate.
-
-=over
-
-=item PERL API
-
- $data = $model->journal();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/journal
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# journal { }
+# This method will return a data structure containing
+# the journal the paper was published in, if appropriate.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/journal
 
 sub journal {
     my ($self) = @_;
@@ -213,56 +106,10 @@ sub journal {
     };
 }
 
-=head3 pages
-
-This method will return a data structure containing
-the page range of the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->pages();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/pages
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# pages { }
+# This method will return a data structure containing
+# the page range of the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/pages
 
 sub pages {
     my ($self) = @_;
@@ -274,56 +121,10 @@ sub pages {
     };
 }
 
-=head3 volume
-
-This method will return a data structure containing
-the volume of the paper the journal was published in.
-
-=over
-
-=item PERL API
-
- $data = $model->volume();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/volume
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# volume { }
+# This method will return a data structure containing
+# the volume of the paper the journal was published in.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/volume
 
 sub volume {
     my ($self) = @_;
@@ -335,56 +136,10 @@ sub volume {
     };
 }
 
-=head3 year
-
-This method will return a data structure containing
-the year of publication.
-
-=over
-
-=item PERL API
-
- $data = $model->year();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/year
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# year { }
+# This method will return a data structure containing
+# the year of publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/year
 
 sub year {
     my ($self) = @_;
@@ -395,56 +150,10 @@ sub year {
     };
 }
 
-=head3 publication_date
-
-This method will return a data structure containing
-the date the paper was published.
-
-=over
-
-=item PERL API
-
- $data = $model->publication_date();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/publication_date
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# publication_date { }
+# This method will return a data structure containing
+# the date the paper was published.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/publication_date
 
 sub publication_date {
     my ($self) = @_;
@@ -454,56 +163,10 @@ sub publication_date {
     };
 }
 
-=head3 authors
-
-This method will return a data structure containing
-the authors of the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->authors();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/authors
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# authors { }
+# This method will return a data structure containing
+# the authors of the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/authors
 
 sub authors {
     my ($self) = @_;
@@ -529,56 +192,10 @@ sub authors {
     };
 }
 
-=head3 editors
-
-This method will return a data structure containing
-the editors of the publication, if any.
-
-=over
-
-=item PERL API
-
- $data = $model->editors();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/editors
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# editors { }
+# This method will return a data structure containing
+# the editors of the publication, if any.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/editors
 
 sub editors {
     my ($self) = @_;
@@ -595,56 +212,10 @@ sub editors {
     };
 }
 
-=head3 publication_type
-
-This method will return a data structure containing
-the type of publication, eg "Book Chapter".
-
-=over
-
-=item PERL API
-
- $data = $model->publication_type();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/publication_type
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# publication_type { }
+# This method will return a data structure containing
+# the type of publication, eg "Book Chapter".
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/publication_type
 
 sub publication_type {
     my ($self) = @_;
@@ -656,56 +227,10 @@ sub publication_type {
     };
 }
 
-=head3 is_wormbook_paper
-
-This method will return a data structure containing
-whether or not this publication came from WormBook.
-
-=over
-
-=item PERL API
-
- $data = $model->is_wormbook_paper();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/is_wormbook_paper
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# is_wormbook_paper { }
+# This method will return a data structure containing
+# whether or not this publication came from WormBook.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/is_wormbook_paper
 
 sub is_wormbook_paper {
     my ($self) = @_;
@@ -724,56 +249,10 @@ sub is_wormbook_paper {
     };
 }
 
-=head3 abstract
-
-This method will return a data structure containing
-the abstract for the publication, if available.
-
-=over
-
-=item PERL API
-
- $data = $model->abstract();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/abstract
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# abstract { }
+# This method will return a data structure containing
+# the abstract for the publication, if available.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/abstract
 
 sub abstract {
     my ($self) = @_;
@@ -791,61 +270,13 @@ sub abstract {
     };
 }
 
-# sub remarks {}
-# Supplied by Role; POD will automatically be inserted here.
-# << include remarks >>
+# remarks {}
+# Supplied by Role
 
-
-=head3 keywords
-
-This method will return a data structure containing
-keywords associated with the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->keywords();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/keywords
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# keywords { }
+# This method will return a data structure containing
+# keywords associated with the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/keywords
 
 sub keywords {
     my ($self) = @_;
@@ -858,56 +289,10 @@ sub keywords {
 }
 
 
-=head3 publisher
-
-This method will return a data structure containing
-the publisher of the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->publisher();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/publisher
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# publisher { }
+# This method will return a data structure containing
+# the publisher of the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/publisher
 
 # Considerations: publisher should be in format "Location: Publisher"
 #                 for APA citations. Consider parsing $self ~~ 'Publisher'
@@ -923,56 +308,10 @@ sub publisher {
 	};
 }
 
-=head3 affiliation
-
-This method will return a data structure containing
-the affiliations of the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->affiliation();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/affiliation
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# affiliation { }
+# This method will return a data structure containing
+# the affiliations of the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/affiliation
 
 sub affiliation {
     my ($self) = @_;
@@ -984,56 +323,10 @@ sub affiliation {
     };
 }
 
-=head3 doi
-
-This method will return a data structure containing
-the DOI of the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->doi();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/doi
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# doi { }
+# This method will return a data structure containing
+# the DOI of the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/doi
 
 sub doi {
     my ($self) = @_;
@@ -1045,56 +338,10 @@ sub doi {
     };
 }
 
-=head3 pmid
-
-This method will return a data structure containing
-the Pubmed ID of the publication.
-
-=over
-
-=item PERL API
-
- $data = $model->pmid();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/pmid
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# pmid { }
+# This method will return a data structure containing
+# the Pubmed ID of the publication.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/pmid
 
 sub pmid {
     my ($self) = @_;
@@ -1114,56 +361,10 @@ sub pmid {
 }
 
 
-=head3 history
-
-This method will return a data structure containing
-the history of the paper
-
-=over
-
-=item PERL API
-
- $data = $model->history();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/history
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# history { }
+# This method will return a data structure containing
+# the history of the paper
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/history
 
 sub history {
     my $self   = shift;
@@ -1185,56 +386,10 @@ sub history {
 }
 
 
-=head3 merged_into
-
-This method will return the paper this paper has been merged into
-if the paper has been merged
-
-=over
-
-=item PERL API
-
- $data = $model->merged_into();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/merged_into
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# merged_into { }
+# This method will return the paper this paper has been merged into
+# if the paper has been merged
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/merged_into
 
 sub merged_into {
     my $self   = shift;
@@ -1247,56 +402,10 @@ sub merged_into {
 }
 
 
-=head3 intext_citation
-
-This method will return a data structure containing
-an APA-formatted in-text (i.e. parenthetical) citation.
-
-=over
-
-=item PERL API
-
- $data = $model->intext_citation();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/intext_citation
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# intext_citation { }
+# This method will return a data structure containing
+# an APA-formatted in-text (i.e. parenthetical) citation.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/intext_citation
 
 sub intext_citation {
     my ($self) = @_;
@@ -1330,56 +439,10 @@ sub intext_citation {
     };
 }
 
-=head3 contained_in
-
-This method will return a data structure containing
-publications the current publication is contained in.
-
-=over
-
-=item PERL API
-
- $data = $model->contained_in();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/contained_in
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# contained_in { }
+# This method will return a data structure containing
+# publications the current publication is contained in.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/contained_in
 
 sub contained_in {
     my ($self) = @_;
@@ -1397,65 +460,19 @@ sub contained_in {
 #
 #######################################
 
-=head2 Referenced
-
-=head3 refers_to
-
-This method will return a data structure containing
-items that the publication refers to.
-
-=over
-
-=item PERL API
-
- $data = $model->refers_to();
-
-=item REST API
-
-B<Request Method>
-
-GET
-
-B<Requires Authentication>
-
-No
-
-B<Parameters>
-
-a Paper ID (eg WBPaper00000031)
-
-B<Returns>
-
-=over 4
-
-=item *
-
-200 OK and JSON, HTML, or XML
-
-=item *
-
-404 Not Found
-
-=back
-
-B<Request example>
-
-curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/refers_to
-
-B<Response example>
-
-<div class="response-example"></div>
-
-=back
-
-=cut
+# refers_to { }
+# This method will return a data structure containing
+# items that the publication refers to.
+# eg: curl -H content-type:application/json http://api.wormbase.org/rest/field/paper/WBPaper00000031/refers_to
 
 sub refers_to {
     my ($self) = @_;
-
     my %data;
-    foreach my $ref_type (@{$self ~~ '@Refers_to'}) {
-        $data{$ref_type} = $self->_pack_objects([$ref_type->col]);
+    foreach my $ref_type ($self->object->Refers_to) {
+      # modified to just get count - breaking on large amounts of xrefs - AC
+      $data{$ref_type} = $self->_get_count($ref_type);
+
+      $data{$ref_type} = $self->_pack_objects([$ref_type->col]) if $data{$ref_type} < 10000;
         # Or build some data tables for different object types
         #	foreach $ref_type ($ref_type->col) {
         #	    if ($ref_type eq '') {
@@ -1470,19 +487,16 @@ sub refers_to {
     };
 }
 
+
+
 ############################################################
 #
 # The External Links widget
 #
 ############################################################
 
-=head2 External Links
-
-=cut
-
-# sub xrefs {}
-# Supplied by Role; POD will automatically be inserted here.
-# << include xrefs >>
+# xrefs {}
+# Supplied by Role
 
 
 #######################################
